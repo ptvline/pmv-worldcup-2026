@@ -11,40 +11,34 @@ FILE_NHAN_VIEN = "2026.06 - PMV.csv"
 FILE_48_DOI = "danhsach48doi.csv"
 PASSWORD_ADMIN = "PMV2026"  # Mật khẩu truy cập menu Admin
 
-# ==============================================================================
-# 🔴 ĐÃ CẬP NHẬT LINK API APPS SCRIPT CỦA ANH
-URL_API_SCRIPT = "https://script.google.com/macros/s/AKfycbyTBUB-qPvDj-sZd2zkxmsPvOmOgSbyp6ssssQSaHVnqpp546DSQG6U7olwp61I8ga6/exec"
-# ==============================================================================
+URL_API_SCRIPT = "https://script.google.com/macros/s/AKfycbyjsiiF0DKv8yw8Sf6SWWv49AMVGR6c8UrKFNY5VrctnEZU7letoH-msVsIBZy0cbpZMA/exec"
 
+# --- CÁC HÀM TẢI DỮ LIỆU TỪ CLOUD ---
 def tai_phieu_bau_cloud():
     try:
-        # Đọc dữ liệu phiếu bầu qua API Apps Script
         url = f"{URL_API_SCRIPT}?worksheet=phieu_bau"
         response = requests.get(url, timeout=5)
         df = pd.DataFrame(response.json())
-        
         if not df.empty:
             df.columns = [col.strip() for col in df.columns]
             if 'Ma_NV' in df.columns:
                 df['Ma_NV'] = df['Ma_NV'].astype(str).str.strip()
         return df
     except:
-        return pd.DataFrame(columns=["Timestamp", "Ma_NV", "Ho_Ten", "Bo_Phan", "Loai_Du_Doan", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan", "Phut_Nop_Som"])
+        return pd.DataFrame(columns=["Timestamp", "Ma_NV", "Ho_Ten", "Bo_Phan", "Loai_Du_Doan", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan", "Phut_Nop_Som", "Thiet_Bi"])
 
 def tai_tran_dau_cloud():
     try:
-        # Đọc dữ liệu trận đấu qua API Apps Script
         url = f"{URL_API_SCRIPT}?worksheet=tran_dau"
         response = requests.get(url, timeout=5)
         df = pd.DataFrame(response.json())
-        
         if not df.empty:
             df.columns = [col.strip() for col in df.columns]
             if 'Ma_Tran' in df.columns:
                 df['Ma_Tran'] = df['Ma_Tran'].astype(str).str.strip()
         return df
     except:
-        return pd.DataFrame(columns=["Ma_Tran", "Doi_Left", "Doi_Right", "Thoi_Gian_Mo_Form", "Thoi_Gian_Khoa_Form", "Ket_Qua_Thuc_Te"])
+        return pd.DataFrame(columns=["Ma_Tran", "Doi_Left", "Doi_Right", "Thoi_Gian_Mo_Form", "Thoi_Gian_Khoa_Form", "Ket_Qua_Thuc_Te", "Active"])
 
 @st.cache_data(ttl=60)
 def tai_danh_sach_nhan_vien():
@@ -63,19 +57,26 @@ def tai_danh_sach_48_doi():
         return df
     return pd.DataFrame()
 
-# Tải dữ liệu ban đầu
+# Tải dữ liệu danh mục tĩnh ban đầu
 df_nv = tai_danh_sach_nhan_vien()
 df_tran = tai_tran_dau_cloud()
 df_48_doi = tai_danh_sach_48_doi()
 
-# --- CHIA MENU CHỨC NĂNG ---
-menu = st.sidebar.radio("DANH MỤC CHỨC NĂNG", ["⚽ Dự Đoán Trận Đấu", "📊 Bảng Xếp Hạng (Leaderboard)", "🛠️ Quản Trị (Admin)"])
-
+# --- KHỞI TẠO BỘ NHỚ TẠM (SESSION STATE) ĐỂ TĂNG TỐC ĐỘ ---
 if "ma_nv_ghi_nho" not in st.session_state:
     st.session_state["ma_nv_ghi_nho"] = ""
 
+if "df_phieu_cache" not in st.session_state:
+    st.session_state["df_phieu_cache"] = None
+
+# --- CHIA MENU CHỨC NĂNG ---
+menu = st.sidebar.radio("DANH MỤC CHỨC NĂNG", ["⚽ Dự Đoán Trận Đấu", "📊 Bảng Xếp Hạng (Leaderboard)", "🛠️ Quản Trị (Admin)"])
+
+# Lấy thông tin đặc trưng trình duyệt để nhận diện thiết bị (Chống vote hộ)
+thong_tin_may_tinh = st.context.headers.get("User-Agent", "Unknown_Browser")
+
 # ==========================================
-# MENU 1: DỰ ĐOÁN (DÀNH CHO NHÂN VIÊN)
+# MENU 1: DỰ ĐOÁN (NHÂN VIÊN)
 # ==========================================
 if menu == "⚽ Dự Đoán Trận Đấu":
     st.title("⚽ MINI GAME DỰ ĐOÁN WORLD CUP 2026")
@@ -88,6 +89,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
     hop_le = False
     ho_ten, bo_phan, ma_nv_selected = "", "", ""
     
+    # Kiểm tra mã nhân viên đăng nhập
     if ma_nv_input != "":
         if not df_nv.empty:
             col_ma_nv = df_nv.columns[0]
@@ -95,38 +97,41 @@ if menu == "⚽ Dự Đoán Trận Đấu":
             col_bophan = df_nv.columns[2] if len(df_nv.columns) > 2 else col_ma_nv
             
             khop_nv = df_nv[df_nv[col_ma_nv] == ma_nv_input]
-            
             if not khop_nv.empty:
                 thong_tin_nv = khop_nv.iloc[0]
                 ho_ten = thong_tin_nv[col_ten_nv]
                 bo_phan = thong_tin_nv[col_bophan]
                 ma_nv_selected = ma_nv_input
+                
+                # Nếu đổi mã nhân viên hoặc lần đầu vào, kích hoạt nạp dữ liệu phiếu bầu mới
+                if st.session_state["ma_nv_ghi_nho"] != ma_nv_input or st.session_state["df_phieu_cache"] is None:
+                    st.session_state["df_phieu_cache"] = tai_phieu_bau_cloud()
+                
                 st.session_state["ma_nv_ghi_nho"] = ma_nv_input
+                df_phieu_hien_tai = st.session_state["df_phieu_cache"]
+                
                 st.success(f"🔓 **Họ và tên:** {ho_ten}  |  **Bộ phận:** {bo_phan}")
                 hop_le = True
             else:
-                st.error("❌ Mã nhân viên không tồn tại trong hệ thống của PMV! Vui lòng nhập lại.")
+                st.error("❌ Mã nhân viên không tồn tại trong hệ thống của PMV! Vui lòng kiểm tra lại.")
         else:
             st.error("Không tìm thấy file dữ liệu nhân viên để đối chiếu.")
     else:
         st.info("👋 Vui lòng nhập Mã nhân viên để bắt đầu mở cổng bình chọn.")
 
     if hop_le:
-        df_phieu_hien_tai = tai_phieu_bau_cloud()
-        if not df_phieu_hien_tai.empty and "Ma_NV" in df_phieu_hien_tai.columns:
-            df_phieu_hien_tai["Ma_NV"] = df_phieu_hien_tai["Ma_NV"].astype(str).str.strip()
-            
-        # Ép chuẩn thời gian theo múi giờ Việt Nam (GMT+7)
         thoi_gian_hien_tai = datetime.now() + timedelta(hours=7)
         
+        # --- II. DỰ ĐOÁN NHÀ VÔ ĐỊCH ---
         st.markdown("---")
         st.header("II. Dự đoán Nhà vô địch World Cup 2026")
         
         da_du_doan_vo_dich = pd.DataFrame()
         if not df_phieu_hien_tai.empty:
+            df_phieu_hien_tai["Ma_NV"] = df_phieu_hien_tai["Ma_NV"].astype(str).str.strip()
             da_du_doan_vo_dich = df_phieu_hien_tai[(df_phieu_hien_tai["Ma_NV"] == ma_nv_selected) & (df_phieu_hien_tai["Loai_Du_Doan"] == "Vo_Dich")]
         
-        # Cấu hình cứng hạn đóng cổng Vô Địch đến 03:00 sáng ngày 20/07/2026 theo yêu cầu
+        # Đóng cổng cố định 03:00 sáng ngày 20/07/2026
         thoi_gian_khoa_vd = datetime.strptime("2026-07-20 03:00:00", "%Y-%m-%d %H:%M:%S")
         
         if thoi_gian_hien_tai > thoi_gian_khoa_vd:
@@ -136,7 +141,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                 st.error("⏳ Đã quá hạn dự đoán Đội vô địch (Cổng đã đóng vào lúc 03:00 ngày 20/07/2026).")
         else:
             if not da_du_doan_vo_dich.empty:
-                st.info(f"💡 Bạn đã dự đoán: **{da_du_doan_vo_dich['Du_Doan'].iloc[0]}**. Bạn vẫn có thể chọn đội khác dưới đây và lưu lại trước giờ đóng cổng.")
+                st.info(f"💡 Bạn đã dự đoán: **{da_du_doan_vo_dich['Du_Doan'].iloc[0]}**. Bạn vẫn có thể cập nhật lựa chọn mới trước giờ khóa cổng.")
             
             if not df_48_doi.empty and "Team" in df_48_doi.columns:
                 doi_vo_dich = st.selectbox("Chọn đội tuyển bạn dự đoán sẽ Vô địch:", ["-- Chọn Đội Tuyển --"] + df_48_doi["Team"].dropna().tolist())
@@ -148,112 +153,135 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                     st.error("Vui lòng chọn hoặc điền tên một đội tuyển!")
                 else:
                     phut_som_vd = int((thoi_gian_khoa_vd - thoi_gian_hien_tai).total_seconds() / 60)
-                    payload = {
+                    payload_vd = {
                         "action": "save_vote", "worksheet": "phieu_bau",
                         "Timestamp": thoi_gian_hien_tai.strftime("%Y-%m-%d %H:%M:%S"),
                         "Ma_NV": ma_nv_selected, "Ho_Ten": ho_ten, "Bo_Phan": bo_phan,
                         "Loai_Du_Doan": "Vo_Dich", "Ma_Tran_Hoac_Doi_Voi": "Chung_Cuoc",
-                        "Du_Doan": doi_vo_dich, "Phut_Nop_Som": phut_som_vd
+                        "Du_Doan": doi_vo_dich, "Phut_Nop_Som": phut_som_vd,
+                        "Thiet_Bi": thong_tin_may_tinh
                     }
-                    res = requests.post(URL_API_SCRIPT, data=payload)
-                    if "Success" in res.text:
-                        st.success(f"🎉 Ghi nhận/Cập nhật thành công Đội vô địch: {doi_vo_dich}")
-                        st.rerun()
+                    
+                    # Cập nhật trực tiếp vào bộ nhớ cache local để tăng tốc giao diện
+                    mask_vd = (st.session_state["df_phieu_cache"]["Ma_NV"] == ma_nv_selected) & (st.session_state["df_phieu_cache"]["Loai_Du_Doan"] == "Vo_Dich")
+                    if mask_vd.any():
+                        st.session_state["df_phieu_cache"].loc[mask_vd, "Du_Doan"] = doi_vo_dich
+                        st.session_state["df_phieu_cache"].loc[mask_vd, "Timestamp"] = payload_vd["Timestamp"]
                     else:
-                        st.error("Lỗi đồng bộ Cloud: " + res.text)
+                        st.session_state["df_phieu_cache"] = pd.concat([st.session_state["df_phieu_cache"], pd.DataFrame([payload_vd])], ignore_index=True)
+                        
+                    requests.post(URL_API_SCRIPT, data=payload_vd)
+                    st.success(f"🎉 Ghi nhận thành công Đội vô địch: {doi_vo_dich}")
+                    st.rerun()
 
+        # --- III. DỰ ĐOÁN KẾT QUẢ TRẬN ĐẤU (VÒNG 1/32) ---
         st.markdown("---")
         st.header("III. Dự đoán kết quả trận đấu (Vòng 1/32)")
         
         if df_tran.empty:
-            st.info("Hiện tại chưa có trận đấu nào được lưu trên hệ thống Google Sheets.")
+            st.info("Hiện tại chưa có lịch trận đấu nào được kích hoạt trên hệ thống.")
         else:
-            # 1. Chuẩn hóa tên cột và dữ liệu thời gian an toàn
             df_tran.columns = [c.strip() for c in df_tran.columns]
             
-            def ep_kieu_tg(val):
+            # Hàm xử lý thời gian an toàn, loại bỏ 100% lỗi so sánh lệch múi giờ
+            def ep_kieu_tg_safe(val):
                 try:
                     return pd.to_datetime(val).to_pydatetime().replace(tzinfo=None)
                 except:
                     return thoi_gian_hien_tai
             
-            df_tran['dt_khoa_tinh_toan'] = df_tran['Thoi_Gian_Khoa_Form'].apply(ep_kieu_tg)
+            df_tran['dt_khoa_sort'] = df_tran['Thoi_Gian_Khoa_Form'].apply(ep_kieu_tg_safe)
             
-            # 2. Đưa trận gần nhất lên trên (Sắp xếp theo thời gian khóa form)
-            df_tran = df_tran.sort_values(by='dt_khoa_tinh_toan', ascending=True).reset_index(drop=True)
+            # ƯU TIÊN ĐƯA CÁC TRẬN SẮP KHÓA FORM LÊN ĐẦU
+            df_tran = df_tran.sort_values(by='dt_khoa_sort', ascending=True).reset_index(drop=True)
             
-            # Nếu Sheet chưa có cột Active, tự động coi như là "Hiện" hết để không lỗi code
+            # Tạo mặc định nếu cột Active chưa tồn tại trên Sheet
             if 'Active' not in df_tran.columns:
                 df_tran['Active'] = 'Hiện'
+                
+            # Phân nhóm Trận đấu theo trạng thái cột Active
+            df_dang_mo_hien = df_tran[df_tran['Active'].astype(str).str.strip() != 'Ẩn']
+            df_da_gom_an = df_tran[df_tran['Active'].astype(str).str.strip() == 'Ẩn']
             
-            # 3. Chia làm 2 nhóm: Nhóm hiện trực tiếp và nhóm gom ẩn
-            df_hien_truc_tiep = df_tran[df_tran['Active'].astype(str).str.strip() == 'Hiện']
-            df_gom_an = df_tran[df_tran['Active'].astype(str).str.strip() == 'Ẩn']
-            
-            # Hàm vẽ giao diện trận đấu (Tách ra để dùng chung)
-            def ve_giao_dien_tran(row_data, idx):
-                ma_tran = str(row_data.get("Ma_Tran", idx)).strip()
+            # Hàm dựng giao diện từng dòng trận đấu
+            def render_giao_dien_tran(row_data, idx_key):
+                ma_tran = str(row_data.get("Ma_Tran", idx_key)).strip()
                 doi_left = row_data.get("Doi_Left", "Đội A")
                 doi_right = row_data.get("Doi_Right", "Đội B")
-                mo_form = ep_kieu_tg(row_data.get("Thoi_Gian_Mo_Form"))
-                han_khoa = ep_kieu_tg(row_data.get("Thoi_Gian_Khoa_Form"))
+                han_khoa = ep_kieu_tg_safe(row_data.get("Thoi_Gian_Khoa_Form"))
                 
-                if thoi_gian_hien_tai >= mo_form:
-                    st.markdown(f"#### ⚽ Trận {ma_tran}: {doi_left} vs {doi_right}")
-                    
-                    da_du_doan_tran = pd.DataFrame()
-                    if not df_phieu_hien_tai.empty and "Ma_Tran_Hoac_Doi_Voi" in df_phieu_hien_tai.columns:
-                        da_du_doan_tran = df_phieu_hien_tai[
-                            (df_phieu_hien_tai["Ma_NV"] == ma_nv_selected) & 
-                            (df_phieu_hien_tai["Ma_Tran_Hoac_Doi_Voi"] == ma_tran)
-                        ]
-                    
-                    if thoi_gian_hien_tai > han_khoa:
-                        if not da_du_doan_tran.empty:
-                            st.info(f"🔒 Đã đóng cổng. Lựa chọn chính thức: **{doi_left} [{da_du_doan_tran['Du_Doan'].iloc[0]}] {doi_right}**")
-                        else:
-                            st.error(f"❌ Trận đấu đã khóa cổng vào lúc {han_khoa.strftime('%H:%M %d/%m')} (Bạn chưa tham gia).")
+                st.markdown(f"#### ⚽ Trận {ma_tran}: {doi_left} vs {doi_right}")
+                
+                da_du_doan_tran = pd.DataFrame()
+                if not df_phieu_hien_tai.empty and "Ma_Tran_Hoac_Doi_Voi" in df_phieu_hien_tai.columns:
+                    st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"] = st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"].astype(str).str.strip()
+                    da_du_doan_tran = st.session_state["df_phieu_cache"][
+                        (st.session_state["df_phieu_cache"]["Ma_NV"] == ma_nv_selected) & 
+                        (st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"] == ma_tran)
+                    ]
+                
+                # Trường hợp: Trận đấu đã quá hạn khóa cổng
+                if thoi_gian_hien_tai > han_khoa:
+                    if not da_du_doan_tran.empty:
+                        st.info(f"🔒 Đã đóng cổng. Lựa chọn chính thức của bạn: **{doi_left} [{da_du_doan_tran['Du_Doan'].iloc[0]}] {doi_right}**")
                     else:
-                        if not da_du_doan_tran.empty:
-                            st.success(f"✅ Bạn đang chọn: **{doi_left} [{da_du_doan_tran['Du_Doan'].iloc[0]}] {doi_right}**.")
-                        else:
-                            st.caption(f"⏳ Cổng đang mở -> Hạn cuối: {han_khoa.strftime('%H:%M %d/%m/%Y')}")
-                        
-                        lua_chon = st.radio(f"Lựa chọn kết quả của **{doi_left}**:", ["Thắng", "Hòa", "Thua"], key=f"radio_{ma_tran}_{idx}", index=None, horizontal=True)
-                        
-                        if lua_chon:
-                            with st.popover(f"🚀 Gửi / Cập nhật dự đoán trận {ma_tran}"):
-                                st.warning(f"Bạn chọn: {doi_left} [{lua_chon}] {doi_right}?")
-                                if st.button("Xác nhận gửi lựa chọn!", key=f"confirm_{ma_tran}_{idx}"):
-                                    phut_som_tran = int((han_khoa - thoi_gian_hien_tai).total_seconds() / 60)
-                                    payload_tran = {
-                                        "action": "save_vote", "worksheet": "phieu_bau",
-                                        "Timestamp": thoi_gian_hien_tai.strftime("%Y-%m-%d %H:%M:%S"),
-                                        "Ma_NV": ma_nv_selected, "Ho_Ten": ho_ten, "Bo_Phan": bo_phan,
-                                        "Loai_Du_Doan": "Tran_Dau", "Ma_Tran_Hoac_Doi_Voi": ma_tran,
-                                        "Du_Doan": lua_chon, "Phut_Nop_Som": phut_som_tran
-                                    }
-                                    res_t = requests.post(URL_API_SCRIPT, data=payload_tran)
-                                    if "Success" in res_t.text:
-                                        st.success("Cập nhật phiếu bầu thành công!")
-                                        st.rerun()
-                                    else:
-                                        st.error("Lỗi: " + res_t.text)
-                    st.markdown("---")
-            
-            # --- HIỂN THỊ NHÓM TRẬN ĐANG ACTIVE ---
-            if not df_hien_truc_tiep.empty:
-                for index, row in df_hien_truc_tiep.iterrows():
-                    ve_giao_dien_tran(row, f"live_{index}")
+                        st.error(f"❌ Trận đấu đã đóng cổng bình chọn vào lúc {han_khoa.strftime('%H:%M %d/%m')} (Bạn đã bỏ lỡ).")
+                # Trường hợp: Cổng vẫn đang mở để vote / sửa
+                else:
+                    if not da_du_doan_tran.empty:
+                        st.success(f"✅ Bạn đang chọn: **{doi_left} [{da_du_doan_tran['Du_Doan'].iloc[0]}] {doi_right}**. (Bạn vẫn có thể tích chọn lại và gửi đè).")
+                    else:
+                        st.caption(f"⏳ Cổng đang mở -> Hạn cuối: {han_khoa.strftime('%H:%M %d/%m/%Y')}")
+                    
+                    lua_chon = st.radio(f"Lựa chọn kết quả của **{doi_left}**:", ["Thắng", "Hòa", "Thua"], key=f"radio_{ma_tran}_{idx_key}", index=None, horizontal=True)
+                    
+                    if lua_chon:
+                        with st.popover(f"🚀 Gửi / Cập nhật dự đoán trận {ma_tran}"):
+                            st.warning(f"Xác nhận lựa chọn: {doi_left} [{lua_chon}] {doi_right}?")
+                            if st.button("Xác nhận gửi!", key=f"btn_confirm_{ma_tran}_{idx_key}"):
+                                phut_som_tran = int((han_khoa - thoi_gian_hien_tai).total_seconds() / 60)
+                                payload_tran = {
+                                    "action": "save_vote", "worksheet": "phieu_bau",
+                                    "Timestamp": thoi_gian_hien_tai.strftime("%Y-%m-%d %H:%M:%S"),
+                                    "Ma_NV": ma_nv_selected, "Ho_Ten": ho_ten, "Bo_Phan": bo_phan,
+                                    "Loai_Du_Doan": "Tran_Dau", "Ma_Tran_Hoac_Doi_Voi": ma_tran,
+                                    "Du_Doan": lua_chon, "Phut_Nop_Som": phut_som_tran,
+                                    "Thiet_Bi": thong_tin_may_tinh
+                                }
+                                
+                                # TĂNG TỐC SIÊU TỐC: Ghi trực tiếp vào biến cache trong RAM trước
+                                df_c = st.session_state["df_phieu_cache"]
+                                mask_t = (df_c["Ma_NV"] == ma_nv_selected) & (df_c["Ma_Tran_Hoac_Doi_Voi"] == ma_tran)
+                                
+                                if mask_t.any():
+                                    df_c.loc[mask_t, "Du_Doan"] = lua_chon
+                                    df_c.loc[mask_t, "Timestamp"] = payload_tran["Timestamp"]
+                                    df_c.loc[mask_t, "Phut_Nop_Som"] = phut_som_tran
+                                else:
+                                    st.session_state["df_phieu_cache"] = pd.concat([df_c, pd.DataFrame([payload_tran])], ignore_index=True)
+                                
+                                # Đẩy dữ liệu lên Cloud chạy ngầm, không bắt giao diện đứng hình chờ đợi
+                                try:
+                                    requests.post(URL_API_SCRIPT, data=payload_tran, timeout=3)
+                                except:
+                                    pass
+                                
+                                st.toast(f"⚽ Đã lưu Trận {ma_tran}: {lua_chon}")
+                                st.rerun()
+                st.markdown("---")
+
+            # 1. Vẽ cụm trận đang để trạng thái Hiện lên màn hình chính
+            if not df_dang_mo_hien.empty:
+                for index, row in df_dang_mo_hien.iterrows():
+                    render_giao_dien_tran(row, f"hien_{index}")
             else:
-                st.info("Không có trận đấu nào đang được đặt trạng thái 'Hiện'.")
+                st.info("Không có trận đấu nào được đặt trạng thái 'Hiện'.")
                 
-            # --- HIỂN THỊ NHÓM TRẬN ĐÃ QUA / MUỐN GOM ẨN ---
-            if not df_gom_an.empty:
-                with st.expander("📦 Xem lại danh sách các trận đấu đã ẩn / đã qua thời gian bình chọn"):
-                    st.caption("Các trận đấu dưới đây đã được quản trị viên đóng hoặc lưu trữ.")
-                    for index, row in df_gom_an.iterrows():
-                        ve_giao_dien_tran(row, f"archive_{index}")
+            # 2. Vẽ cụm trận đấu đã Ẩn vào nút Expander thu gọn gọn gàng
+            if not df_da_gom_an.empty:
+                with st.expander("📦 Xem danh sách các trận đấu cũ đã ẩn / lưu trữ"):
+                    for index, row in df_da_gom_an.iterrows():
+                        render_giao_dien_tran(row, f"an_{index}")
 
 # ==========================================
 # MENU 2: LEADERBOARD (BẢNG XẾP HẠNG)
@@ -262,13 +290,13 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     st.title("📊 BẢNG TỔNG SOÁT KẾT QUẢ MINI GAME")
     st.markdown("---")
     
+    # Ép buộc tải mới từ Cloud khi xem bảng xếp hạng để đảm bảo điểm số chính xác nhất
     df_phieu = tai_phieu_bau_cloud()
     
     st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu (Vòng 1/32)")
-    st.caption("Tiêu chí sắp xếp: Tổng điểm cao nhất (3đ/trận đúng) $\rightarrow$ Tổng số phút nộp sớm nhất của các trận đoán đúng.")
     
     if df_tran.empty or df_phieu.empty or df_phieu[df_phieu['Loai_Du_Doan'] == 'Tran_Dau'].empty:
-        st.info("Chưa có đủ dữ liệu trận đấu hoặc phiếu bầu trận đấu trên Cloud để kết xuất bảng tính điểm.")
+        st.info("Chưa có đủ dữ liệu trên Cloud để phân tích kết quả xếp hạng.")
     else:
         dict_ket_qua = dict(zip(df_tran['Ma_Tran'].astype(str), df_tran['Ket_Qua_Thuc_Te']))
         df_du_doan_tran = df_phieu[df_phieu['Loai_Du_Doan'] == 'Tran_Dau'].copy()
@@ -288,30 +316,28 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
         
         st.dataframe(bxh_diem.rename(columns={
             'Ma_NV': 'Mã Nhân Viên', 'Ho_Ten': 'Họ và Tên', 'Bo_Phan': 'Bộ Phận',
-            'Tong_Diem': 'Tổng Điểm', 'Tong_Phut_Som': 'Tổng Phút Sớm (Các Trận Đúng)'
+            'Tong_Diem': 'Tổng Điểm', 'Tong_Phut_Som': 'Tổng Phút Sớm'
         }), use_container_width=True)
         
-    st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("---")
-    
     st.header("🔮 2. Danh Sách Lựa Chọn Đội Vô Địch World Cup 2026")
     df_vd_only = df_phieu[df_phieu['Loai_Du_Doan'] == 'Vo_Dich'].copy()
     
     if df_vd_only.empty:
-        st.info("Chưa có thành viên nào thực hiện dự đoán Đội vô địch chung cuộc.")
+        st.info("Chưa có thành viên nào thực hiện dự đoán Đội vô địch.")
     else:
         df_vd_show = df_vd_only[['Ma_NV', 'Ho_Ten', 'Bo_Phan', 'Du_Doan', 'Timestamp']].reset_index(drop=True)
         df_vd_show.index += 1
         st.dataframe(df_vd_show.rename(columns={
             'Ma_NV': 'Mã Nhân Viên', 'Ho_Ten': 'Họ và Tên', 'Bo_Phan': 'Bộ Phận',
-            'Du_Doan': 'Đội Tuyển Lựa Chọn', 'Timestamp': 'Thời Điểm Thay Đổi Cuối'
+            'Du_Doan': 'Đội Tuyển Lựa Chọn', 'Timestamp': 'Thời Điểm Lưu Phiếu'
         }), use_container_width=True)
 
 # ==========================================
 # MENU 3: QUẢN TRỊ (ADMIN)
 # ==========================================
 elif menu == "🛠️ Quản Trị (Admin)":
-    st.title("🛠️ HỆ THỐNG QUẢN TRỊ & NẠP TRẬN ĐẤU (CLOUD API)")
+    st.title("🛠️ HỆ THỐNG QUẢN TRỊ & NẠP TRẬN ĐẤU")
     
     mat_khau = st.text_input("Vui lòng nhập mã bảo mật Admin:", type="password")
     if mat_khau == PASSWORD_ADMIN:
@@ -346,7 +372,7 @@ elif menu == "🛠️ Quản Trị (Admin)":
                     }
                     res_a = requests.post(URL_API_SCRIPT, data=payload_add)
                     if "Success" in res_a.text:
-                        st.success("Đã nạp trận đấu thành công qua API!")
+                        st.success("Đã nạp trận đấu thành công!")
                         st.rerun()
                     else:
                         st.error("Lỗi nạp trận: " + res_a.text)
@@ -373,7 +399,7 @@ elif menu == "🛠️ Quản Trị (Admin)":
                     }
                     res_u = requests.post(URL_API_SCRIPT, data=payload_update)
                     if "Success" in res_u.text:
-                        st.success("Đã cập nhật kết quả trận đấu lên Cloud qua API thành công!")
+                        st.success("Đã cập nhật kết quả thành công!")
                         st.rerun()
                     else:
                         st.error("Lỗi cập nhật tỷ số: " + res_u.text)
