@@ -1,0 +1,195 @@
+﻿ID,Name ,Line,Name of Function,Name of Line
+004,Tran Thi Binh,GeorgA,F1111-Management,Operations
+022,Duong Van Bac,BinhT,F1111-SCM,Operations
+042,Nguyen Quang Giang,BinhT,F1111-ISO,Operations
+043,Vu Van Binh,BinhT,F1111-Manufacturing,Operations
+061,Truong Thanh Tung,Binht,F1111-Testing,Operations
+073,Nguyen Viet Quan,BinhT,F3333-Engineer Davit,PLM Boats_Davits
+129,Dao Ba Tuong Long,BinhT,F1111-Assembly ,Operations
+223,Do Thi Nhan,BinhT,F1111-SCM,Operations
+255,Pham Van Huy,BinhT,F1111-Procument,Procurement
+278,Pham Kim Sang,BinhT,F1111-HSEQ,Operations
+291,Tran Quang Van,BinhT,F1111-Manufacturing,Operations
+302,Ngo Thi Linh Phuong,BinhT,F5555-Finance,Finance
+322,Pham Van Hoang,BinhT,F1111-Assembly ,Operations
+323,Nguyen Phuc Hai,BinhT,F1111-SCM,Operations
+364,Nguyen Tien Hung,BinhT,F1111-SQM,SQE
+400,Vu Nhu Quynh,BinhT,F5555-HR,HR
+010,Truong Thi Oanh,Tungt,F1111-HSK,Operations
+011,Pham Thanh Tuan,Tungt,F1111-HSK,Operations
+016,Nguyen Anh Duc,BinhV,F0500-Assembly,Assembly Davit
+019,Dinh Xuan Thu,BinhV,F0500-Welder,Manufacturing Davit
+026,Tran Viet Thanh,BinhV,F0500-Welder,Manufacturing Davit
+028,Dao Thi Hang,Tungt,F1111-HSK,Operations
+033,Nguyen Trong Thuan,BinhV,F0500-Welder,Manufacturing Davit
+036,Dao Hong Quan,BinhV,F0500-Welder,Manufacturing Davit
+037,Cao Xuan Hieu,BinhV,F0500-Welder,Manufacturing Davit
+039,La Mai Anh,BinhV,F0500-Welder,Manufacturing Davit
+040,Luong Van Hoa,BinhV,F0500-Painter,Manufacturing Davit
+049,Do Duc Tuan,BinhV,F0500-Welder,Manufacturing Davit
+052,Nguyen Thang Tung,BinhV,F0500-Welder,Manufacturing Davit
+070,Pham Van Manh,NhanD,F0500-SCM,Warehouse
+072,Nguyen Hai Duong,BinhV,F0500-Assembly,Assembly Davit
+074,Nguyen Ngoc Anh,BinhV,F0500-Assembly,Assembly Davit
+103,Le Hai Lam,PAP,F4444-Sales PAS,Sales & service
+112,Vu Van Luong,Vant,F0500-Quality,QC
+118,Nguyen Van Nam,BinhV,F0500-Welder,Manufacturing Davit
+122,Le Van Khu,BinhV,F0500-Assembly,Assembly Davit
+133,Trinh Van Thieu,BinhV,F0500-Assembly,Assembly Davit
+157,Nguyen Quang Nam,BinhV,F0500-Assembly,Assembly Davit
+170,Truong Thi Thu Hien,PhuongN,F5555-Finance,Finance
+174,Le Nguyen Thang,Vant,F0500-Quality,QC
+186,Khuat Thi Hien,PhuongN,F5555-Finance,Finance
+188,Le Thi Huyen Trang,NhanD,F0500-SCM,Warehouse
+193,Chu Van Phuc,BinhV,F0500-Assembly,Assembly Davit
+195,Nguyen Van Toi,BinhV,F0500-Assembly,Assembly Davit
+199,Pham Huu Thang,BinhV,F0500-Welder,Manufacturing Davit
+200,Vuong Van Ha,BinhV,F0500-Welder,Manufacturing Davit
+203,Nguyen Van Phuong,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+205,Nguyen Nhu Khanh,BinhV,F0500-Cutting,Manufacturing Davit
+207,Ma Van Thanh,HoangP,F0500-GRP,Manufacturing Boat
+208,Luong Van Thao,HoangP,F0500-GRP,Manufacturing Boat
+209,Vu Van Truong,BinhV,F0500-Painter,Manufacturing Davit
+210,Nguyen Van Hoan,HoangP,F0500-GRP,Manufacturing Boat
+211,Vu Dinh Hoa,BinhV,F0500-Welder,Manufacturing Boat
+212,Nguyen Thi Cuc,Tungt,F1111-HSK,Operations
+213,Tran Dinh Dan,HoangP,F0500-Assembly,Assembly Boat
+216,Tran Tuan Anh,HaiN,F1111-SCM,Operations
+217,Pham Ngoc Tuan,HoangP,F0500-Welder,Manufacturing Boat
+219,Nguyen Duy Tai,HoangP,F0500-Assembly,Assembly Boat
+221,Duong Van Khiem,HoangP,F0500-Assembly,Assembly Boat
+224,Phung Van Kien,Vant,F0500-Quality,QC
+225,Dao Duc Ba,HoangP,F0500-GRP,Manufacturing Boat
+226,Pham Van Vinh,HoangP,F0500-Welder,Manufacturing Boat
+227,Pham Van Quang,HoangP,F0500-GRP,Manufacturing Boat
+228,Nguyen Van Tuan,HoangP,F0500-GRP,Manufacturing Boat
+229,Chu Van Doanh,HoangP,F0500-Welder,Manufacturing Boat
+231,Nguyen Van Hao,BinhV,F0500-Painter,Manufacturing Davit
+232,Nguyen Van Khanh,HoangP,F0500-GRP,Manufacturing Boat
+234,Nguyen Huu Ba,HoangP,F0500-GRP,Manufacturing Boat
+235,Pham Van Tuan,HoangP,F0500-GRP,Manufacturing Boat
+240,Dao Thanh Tung,HoangP,F0500-GRP,Manufacturing Boat
+242,Doan Dinh Cuong,HoangP,F0500-GRP,Manufacturing Boat
+246,Ma Van Tinh,BinhV,F0500-Welder,Manufacturing Davit
+247,Phan Van Hoa,HoangP,F0500-Assembly,Assembly Boat
+249,Le Van Quang,HoangP,F0500-GRP,Manufacturing Boat
+250,Quan Thi Thu Hang,NhanD,F0500-SCM,Warehouse
+252,Nguyen Le Nhan,HoangP,F0500-Assembly,Assembly Boat
+256,To Huy Hoang,HoangP,F0500-Assembly,Assembly Boat
+257,Do Tu Anh,NhanD,F0500-SCM,Warehouse
+258,Tran Duy Thang,HoangP,F0500-GRP,Manufacturing Boat
+259,Tran Xuan Thoai,HoangP,F0500-Assembly,Assembly Boat
+260,Nguyen Trong Thanh,Tungt,F1111-HSK,Operations
+268,Bui Van Vinh,QuanN,F3333-Engineer Boat,PLM Boats_Davits
+269,Le Thi Dang,Tungt,F1111-HSK,Operations
+274,Do Thanh Tung,Vant,F0500-Quality,QC
+276,Le Quang Hung,BinhV,F0500-Assembly,Assembly Davit
+281,Vu Cong Tuy,BinhV,F0500-Welder,Manufacturing Davit
+292,Pham Thi Thuan,HuyP,F1111-Procument,Procurement
+295,Vu Gia Tuan,BinhV,F0500-Welder,Manufacturing Davit
+309,Do Thi Hien,PhuongN,F5555-Finance,Finance
+314,Luu Dinh Bo,BinhV,F0500-Assembly,Assembly Davit
+317,Nguyen Thanh Chung,BinhV,F0500-Welder,Manufacturing Davit
+326,Pham Xuan Thap,HoangP,F0500-Welder,Manufacturing Boat
+327,Nguyen The Cuong,BinhV,F0500-Welder,Manufacturing Davit
+332,Tran Van Thanh,NhanD,F0500-SCM,Warehouse
+336,Le Thi Ly,NhanD,F1111-SCM,Operations
+337,Ma Van Dai,BinhV,F0500-Assembly,Assembly Davit
+339,Luong Van Nhat,BinhV,F0500-Welder,Manufacturing Davit
+342,Nguyen Ngoc Tuyen,NhanD,F0500-SCM,Warehouse
+352,Nguyen Duy Toan,BinhV,F1111-Manufacturing,Operations
+355,Phan Quang Luan,BinhV,F0500-Painter,Manufacturing Davit
+360,Nguyen Van Chuc,BinhV,F0500-Assembly,Assembly Davit
+362,Luu Duc Thang,BinhV,F0500-Welder,Manufacturing Davit
+363,Vu Sy Thang,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+365,Le Minh Anh,QuanN,F3333-Engineer Boat,PLM Boats_Davits
+368,Tran Quang Viet,LongD,F1111-Manufacturing,Operations
+369,Pham Thanh Tung,Tungt,F1111-Admin,Operations
+370,Pham Duc Hop,Tungt,F1111-HSK,Operations
+371,Luong Thu Huong,NhanD,F1111-SCM,Operations
+374,Nguyen Van Toan,BinhV,F0500-Cutting,Manufacturing Davit
+377,Ta Van Tang,BinhV,F0500-Maintenance,Assembly Davit
+379,Le Van Cuong,BinhV,F0500-Welder,Manufacturing Davit
+385,Dang Quang Hiep,BinhV,F0500-Assembly,Manufacturing Boat
+387,Dang Tien Dung,BinhV,F0500-Assembly,Assembly Davit
+388,Nguyen Xuan Duc,BinhV,F1111-Manufacturing,Operations
+389,Luong Huu Tuan,HoangP,F1111-Manufacturing,Operations
+390,Truong Dinh Quang,HoangP,F0500-GRP,Manufacturing Boat
+394,Nguyen Van Viet,BinhV,F0500-Welder,Manufacturing Davit
+395,Nguyen Manh Cuong,LongD,F1111-Manufacturing,Operations
+398,Le Xuan Manh,HoangP,F0500-Welder,Manufacturing Boat
+401,Vu Dinh Do,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+402,Nguyen Quang Duy,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+403,Tran Van Quoc,BinhV,F0500-Welder,Manufacturing Davit
+404,Nguyen The Toan,BinhV,F0500-Assembly,Assembly Davit
+406,Nguyen Van Chung,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+408,Tran Thi Oanh,Tungt,F1111-HSK,Operations
+409,Phan Van Dien,HaiN,F1111-SCM,Operations
+410,Nguyen Quang Anh,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+411,Chu Quoc Thu,BinhV,F0500-Welder,Manufacturing Davit
+412,Vu Viet Mong,BinhV,F0500-Painter,Manufacturing Davit
+413,Nguyen Hong Son,PAP,F4444-Sales PAP,Sales & service
+414,Do Duy Cong,BinhV,F0500-Assembly,Assembly Davit
+415,Le Nguyen Tien,BinhV,F0500-Assembly,Assembly Davit
+417,Nguyen Van Duc,BinhV,F0500-Welder,Manufacturing Davit
+418,Vu Tra My,NhanD,F1111-SCM,Operations
+419,Pham Tien Vui,Vant,F1111-Manufacturing,Operations
+421,Nguyen Manh Hung,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+422,Quan Minh Duc,HoangP,F1111-Manufacturing,Operations
+423,Nguyen An Tuan,Vant,F0500-Quality,QC
+426,Nguyen Van Truyen,BinhV,F0500-Painter,Operations
+427,Nguyen Dinh Thai,BinhV,F0500-Welder,Operations
+428,Vuong Thi Thuy,HaiN,F1111-SCM,Operations
+429,Hoang Tien Khuong,Vant,F0500-Welder,Operations
+430,Nguyen Thu Hang,Tungt,F1111-HSK,Operations
+431,Dau Sy Hanh,BinhV,F0500-Welder,Operations
+432,Truong Ngoc Phuc,BinhV,F0500-Cutting,Operations
+434,Pham Duc Nhat,BinhV,F1111-Manufacturing,Operations
+436,Tran Danh Huy,BinhV,F0500-Painter,Manufacturing Davit
+437,Nguyen Dinh Hieu,BinhV,F0500-Cutting,Operations
+438,Le Thi Huong,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+439,Bach Cong Thuong,Vant,F0500-Quality,QC
+440,Nguyen Van Dung,BinhV,F1111-Manufacturing,Operations
+442,Dang Trung Hai,BinhV,F1111-Manufacturing,Operations
+443,Nguyen Chien Thang,BinhV,F1111-Manufacturing,Operations
+444,Nguyen Duy Manh,QuanN,F3333-Engineer Davit,PLM Boats_Davits
+445,Le Thi Nguyet,Tungt,F1111-Admin,Operations
+446,Vu Kim Nam,Vant,F0500-Welder,Operations
+447,Dao Huy Huy,Vant,F0500-Welder,Operations
+448,Pham Duc Tuyen,BinhV,F0500-Welder,Operations
+449,Dang Van Huynh,Vant,F0500-Welder,Operations
+450,Nguyen Xuan Hai,Vant,F0500-Welder,Operations
+451,Nguyen Huu Dat,Vant,F0500-Welder,Operations
+452,Dang Ngoc Son,BinhV,F0500-Assembly,Operations
+453,Vu Dang Vinh,Vant,F0500-Cutting,Operations
+454,Pham Van Thu,Vant,F0500-Welder,Operations
+455,Nguyễn Đức Trung ,BinhV,,
+456,Vũ Văn Cường,Vant,,
+457,Phạm Văn Khởi,Vant,,
+458,Phạm Văn Sơn,Vant,,
+459,Nguyễn Thanh Tuyền,Vant,,
+462,Phan Hồng Sơn,HaiN,,
+463,Phạm Văn Mạnh,Sang,,
+464,Trịnh Văn Quang,BinhV,,
+465,Đinh Văn Nhiên,Sang,,
+466,Đinh Đức Đại,Sang,,
+467,Phạm Bảo Chung,BinhV,,
+468,Nguyễn Xuân Đại,Sang,,
+469,Lê Ngọc Sơn,NhanD,,
+470,Đào Văn Hoàn,,,
+471,Đặng Xuân Thêm,,,
+472,Vũ Văn Long,,,
+473,Vũ Văn Tuấn,,,
+474,Đỗ Đức Thành,,,
+475,Phạm Văn Mạnh,Vant,,
+476,Phạm Đình Vinh,BinhV,,
+477,Nguyen Van Phuc,BinhV,,
+478,Ha Quoc Nam,BinhV,,
+479,Pham Huu Thang,QuanN,,
+480,Nguyen Trung Nhat,LongD,,
+481,Nguyen Van Tuan,BinhT,,
+482,Hoang Van Thang,Toan,,
+483,Pham Thi Hue,PhuongN,,
+484,Vuong Duc Tiep,Sang,,
+485,Mai Hong Tu,NhanD,,
+486,Duong Viet A,LongD,,
