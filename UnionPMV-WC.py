@@ -299,12 +299,12 @@ elif menu == "🛠️ Quản Trị (Admin)":
                         
         with tab2:
             st.header("Cập nhật kết quả sau trận đấu")
-            df_cap_nhat = tai_danh_sach_tran_dau()
+            df_cap_nhat = tai_tran_dau_cloud()
             
             if df_cap_nhat.empty:
                 st.info("Chưa có trận đấu nào được lưu.")
             else:
-                list_tran_chua_update = df_cap_nhat['Ma_Tran'].tolist()
+                list_tran_chua_update = df_cap_nhat['Ma_Tran'].dropna().tolist()
                 tran_selected = st.selectbox("Chọn Mã trận muốn cập nhật kết quả:", list_tran_chua_update)
                 
                 thong_tin_t = df_cap_nhat[df_cap_nhat['Ma_Tran'] == tran_selected].iloc[0]
