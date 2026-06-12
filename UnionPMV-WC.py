@@ -106,8 +106,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
     if hop_le:
         df_phieu_hien_tai = tai_phieu_bau_cloud()
         df_phieu_hien_tai["Ma_NV"] = df_phieu_hien_tai["Ma_NV"].astype(str).str.strip()
-        thoi_gian_hien_tai = datetime.now()
-        
+        thoi_gian_hien_tai = datetime.now() + timedelta(hours=7)        
         st.markdown("---")
         st.header("II. Dự đoán Nhà vô địch World Cup 2026")
         da_du_doan_vo_dich = df_phieu_hien_tai[(df_phieu_hien_tai["Ma_NV"] == ma_nv_selected) & (df_phieu_hien_tai["Loai_Du_Doan"] == "Vo_Dich")]
@@ -161,8 +160,8 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                 doi_left = row.get("Doi_Left", "Đội A")
                 doi_right = row.get("Doi_Right", "Đội B")
                 
-                mo_form = pd.to_datetime(row.get("Thoi_Gian_Mo_Form")).to_pydatetime()
-                han_khoa = pd.to_datetime(row.get("Thoi_Gian_Khoa_Form")).to_pydatetime()
+                mo_form = pd.to_datetime(row.get("Thoi_Gian_Mo_Form"), format="%Y-%m-%d %H:%M:%S", errors='coerce').to_pydatetime()
+                han_khoa = pd.to_datetime(row.get("Thoi_Gian_Khoa_Form"), format="%Y-%m-%d %H:%M:%S", errors='coerce').to_pydatetime()
                 
                 if thoi_gian_hien_tai >= mo_form:
                     st.markdown(f"#### ⚽ Trận {ma_tran}: {doi_left} vs {doi_right}")
@@ -272,7 +271,7 @@ elif menu == "🛠️ Quản Trị (Admin)":
             doi1 = st.text_input("Đội tuyển 1 (Bên trái):")
             doi2 = st.text_input("Đội tuyển 2 (Bên phải):")
             
-            ngay_da = st.date_input("Chọn ngày thi đấu:", datetime.now())
+            ngay_da = st.date_input("Chọn ngày thi đấu:", datetime.now() + timedelta(hours=7))
             gio_da = st.time_input("Chọn giờ đá chính thức:", datetime.strptime("18:00", "%H:%M").time())
             
             dt_da = datetime.combine(ngay_da, gio_da)
