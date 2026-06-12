@@ -13,7 +13,7 @@ FILE_48_DOI = "danhsach48doi.csv"
 PASSWORD_ADMIN = "PMV2026"  # Mật khẩu truy cập menu Admin
 
 # ĐƯỜNG DẪN ĐẾN FILE GOOGLE SHEETS CỦA ANH (Thay link file của anh vào đây)
-URL_GOOGLE_SHEET = "DÁN_TOÀN_BỘ_LINK_GOOGLE_SHEETS_CỦA_ANH_VÀO_ĐÂY"
+URL_GOOGLE_SHEET = "https://docs.google.com/spreadsheets/d/1JGIDQqRF0yO-1pJ5Vndz4UAUC8JPJDTHoVDR28z6-G0/edit?usp=sharing"
 
 # --- KẾT NỐI GOOGLE SHEETS QUA STREAMLIT CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
