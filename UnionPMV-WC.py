@@ -162,17 +162,19 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                         "Thiet_Bi": thong_tin_may_tinh
                     }
                     
-                    # Cập nhật trực tiếp vào bộ nhớ cache local để tăng tốc giao diện
-                    mask_vd = (st.session_state["df_phieu_cache"]["Ma_NV"] == ma_nv_selected) & (st.session_state["df_phieu_cache"]["Loai_Du_Doan"] == "Vo_Dich")
-                    if mask_vd.any():
-                        st.session_state["df_phieu_cache"].loc[mask_vd, "Du_Doan"] = doi_vo_dich
-                        st.session_state["df_phieu_cache"].loc[mask_vd, "Timestamp"] = payload_vd["Timestamp"]
+                    # Kiểm tra an toàn trước khi tạo mask để tránh KeyError
+                    df_cache = st.session_state["df_phieu_cache"]
+                    
+                    if "Ma_NV" in df_cache.columns and "Loai_Du_Doan" in df_cache.columns:
+                        mask_vd = (df_cache["Ma_NV"] == ma_nv_selected) & (df_cache["Loai_Du_Doan"] == "Vo_Dich")
+                        if mask_vd.any():
+                            st.session_state["df_phieu_cache"].loc[mask_vd, "Du_Doan"] = doi_vo_dich
+                            st.session_state["df_phieu_cache"].loc[mask_vd, "Timestamp"] = payload_vd["Timestamp"]
+                        else:
+                            st.session_state["df_phieu_cache"] = pd.concat([df_cache, pd.DataFrame([payload_vd])], ignore_index=True)
                     else:
-                        st.session_state["df_phieu_cache"] = pd.concat([st.session_state["df_phieu_cache"], pd.DataFrame([payload_vd])], ignore_index=True)
-                        
-                    requests.post(URL_API_SCRIPT, data=payload_vd)
-                    st.success(f"🎉 Ghi nhận thành công Đội vô địch: {doi_vo_dich}")
-                    st.rerun()
+                        # Nếu cache chưa có cột (do sheet rỗng), tạo mới luôn một DataFrame từ payload
+                        st.session_state["df_phieu_cache"] = pd.DataFrame([payload_vd])
 
         # --- III. DỰ ĐOÁN KẾT QUẢ TRẬN ĐẤU (VÒNG 1/32) ---
         st.markdown("---")
