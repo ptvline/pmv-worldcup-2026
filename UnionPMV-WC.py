@@ -15,18 +15,27 @@ URL_API_SCRIPT = "https://script.google.com/macros/s/AKfycbyjsiiF0DKv8yw8Sf6SWWv
 
 # --- CÁC HÀM TẢI DỮ LIỆU TỪ CLOUD ---
 def tai_phieu_bau_cloud():
+    # Định nghĩa sẵn danh sách các cột bắt buộc phải có
+    cac_cot_mac_dinh = ["Timestamp", "Ma_NV", "Ho_Ten", "Bo_Phan", "Loai_Du_Doan", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan", "Phut_Nop_Som", "Thiet_Bi"]
     try:
         url = f"{URL_API_SCRIPT}?worksheet=phieu_bau"
         response = requests.get(url, timeout=5)
-        df = pd.DataFrame(response.json())
-        if not df.empty:
+        data = response.json()
+        
+        # Kiểm tra nếu có dữ liệu trả về từ API
+        if data and len(data) > 0:
+            df = pd.DataFrame(data)
             df.columns = [col.strip() for col in df.columns]
             if 'Ma_NV' in df.columns:
                 df['Ma_NV'] = df['Ma_NV'].astype(str).str.strip()
-        return df
+            return df
+        else:
+            # Nếu Sheet trống (chưa có ai vote), trả về DataFrame trống NHƯNG PHẢI CÓ ĐỦ CỘT
+            return pd.DataFrame(columns=cac_cot_mac_dinh)
     except:
-        return pd.DataFrame(columns=["Timestamp", "Ma_NV", "Ho_Ten", "Bo_Phan", "Loai_Du_Doan", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan", "Phut_Nop_Som", "Thiet_Bi"])
-
+        # Nếu lỗi kết nối mạng hoặc lỗi API, trả về cấu trúc cột mặc định để app không bị crash
+        return pd.DataFrame(columns=cac_cot_mac_dinh)
+        
 def tai_tran_dau_cloud():
     try:
         url = f"{URL_API_SCRIPT}?worksheet=tran_dau"
