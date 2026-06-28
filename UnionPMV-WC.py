@@ -11,7 +11,8 @@ FILE_NHAN_VIEN = "2026.06 - PMV.csv"
 FILE_48_DOI = "danhsach48doi.csv"
 PASSWORD_ADMIN = "PMV2026"  # Mật khẩu truy cập menu Admin
 
-URL_API_SCRIPT = "https://script.google.com/macros/s/AKfycbyjsiiF0DKv8yw8Sf6SWWv49AMVGR6c8UrKFNY5VrctnEZU7letoH-msVsIBZy0cbpZMA/exec"
+
+URL_API_SCRIPT = "https://script.google.com/macros/s/AKfycbwT-cMsP5MLBWb0ugoR64MODVfZZ5ABYNBFNd6HGKy0UL_y_-cPsGRrlW-TcbyUfxD45w/exec"
 
 # --- HÀM TIỆN ÍCH AN TOÀN (TRÁNH CRASH DO DỮ LIỆU LỖI/THIẾU) ---
 def an_toan_int(value, default=0):
