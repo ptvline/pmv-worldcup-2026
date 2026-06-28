@@ -326,13 +326,16 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                                 else:
                                     st.session_state["df_phieu_cache"] = pd.concat([df_c, pd.DataFrame([payload_tran])], ignore_index=True)
                                 
-                                # Đẩy dữ liệu lên Cloud chạy ngầm, không bắt giao diện đứng hình chờ đợi
+                                # Đẩy dữ liệu lên Cloud - hiện rõ kết quả để phát hiện nếu Cloud từ chối cập nhật
                                 try:
-                                    requests.post(URL_API_SCRIPT, data=payload_tran, timeout=3)
-                                except:
-                                    pass
+                                    res_t = requests.post(URL_API_SCRIPT, data=payload_tran, timeout=8)
+                                    if "Success" in res_t.text:
+                                        st.toast(f"⚽ Đã lưu Trận {ma_tran}: {lua_chon}")
+                                    else:
+                                        st.toast(f"⚠️ Trận {ma_tran}: Cloud phản hồi bất thường, vui lòng kiểm tra lại sau!", icon="⚠️")
+                                except requests.exceptions.RequestException:
+                                    st.toast(f"⚠️ Trận {ma_tran}: Không kết nối được Cloud, vui lòng thử lại!", icon="⚠️")
                                 
-                                st.toast(f"⚽ Đã lưu Trận {ma_tran}: {lua_chon}")
                                 st.rerun()
                 st.markdown("---")
 
