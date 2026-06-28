@@ -227,6 +227,19 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                         # Nếu cache chưa có cột (do sheet rỗng), tạo mới luôn một DataFrame từ payload
                         st.session_state["df_phieu_cache"] = pd.DataFrame([payload_vd])
 
+                    # ĐẨY DỮ LIỆU LÊN CLOUD - đây là bước bị THIẾU trong code gốc,
+                    # khiến dự đoán Vô địch chỉ lưu tạm ở RAM mà không bao giờ ghi vào Google Sheet
+                    try:
+                        res_vd = requests.post(URL_API_SCRIPT, data=payload_vd, timeout=8)
+                        if "Success" in res_vd.text:
+                            st.toast(f"🏆 Đã lưu dự đoán Đội vô địch: {doi_vo_dich}")
+                        else:
+                            st.warning(f"⚠️ Đã lưu tạm trên trình duyệt nhưng Cloud phản hồi bất thường: {res_vd.text}")
+                    except requests.exceptions.RequestException as e:
+                        st.warning(f"⚠️ Đã lưu tạm trên trình duyệt, nhưng KHÔNG kết nối được Cloud để lưu vĩnh viễn. Vui lòng bấm lại nút Xác nhận khi có mạng ổn định. Chi tiết lỗi: {e}")
+
+                    st.rerun()
+
         # --- III. DỰ ĐOÁN KẾT QUẢ TRẬN ĐẤU (VÒNG 1/32) ---
         st.markdown("---")
         st.header("III. Dự đoán kết quả trận đấu (Vòng 1/32)")
