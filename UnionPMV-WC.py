@@ -13,57 +13,97 @@ PASSWORD_ADMIN = "PMV2026"  # Mật khẩu truy cập menu Admin
 
 URL_API_SCRIPT = "https://script.google.com/macros/s/AKfycbyjsiiF0DKv8yw8Sf6SWWv49AMVGR6c8UrKFNY5VrctnEZU7letoH-msVsIBZy0cbpZMA/exec"
 
+# --- HÀM TIỆN ÍCH AN TOÀN (TRÁNH CRASH DO DỮ LIỆU LỖI/THIẾU) ---
+def an_toan_int(value, default=0):
+    """Chuyển giá trị về int một cách an toàn, không bao giờ crash app."""
+    try:
+        if value is None or str(value).strip() == "":
+            return default
+        return int(float(value))
+    except (ValueError, TypeError):
+        return default
+
+def co_du_cot(df, danh_sach_cot):
+    """Kiểm tra DataFrame có đủ các cột cần thiết trước khi xử lý, tránh KeyError."""
+    if df is None or df.empty:
+        return False
+    return all(c in df.columns for c in danh_sach_cot)
+
 # --- CÁC HÀM TẢI DỮ LIỆU TỪ CLOUD ---
 def tai_phieu_bau_cloud():
     # Định nghĩa sẵn danh sách các cột bắt buộc phải có
     cac_cot_mac_dinh = ["Timestamp", "Ma_NV", "Ho_Ten", "Bo_Phan", "Loai_Du_Doan", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan", "Phut_Nop_Som", "Thiet_Bi"]
     try:
         url = f"{URL_API_SCRIPT}?worksheet=phieu_bau"
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=8)
+        if response.status_code != 200:
+            return pd.DataFrame(columns=cac_cot_mac_dinh)
+
         data = response.json()
-        
-        # Kiểm tra nếu có dữ liệu trả về từ API
-        if data and len(data) > 0:
+
+        # Kiểm tra nếu có dữ liệu trả về từ API VÀ đúng định dạng list (tránh lỗi nếu API trả về dict/lỗi)
+        if isinstance(data, list) and len(data) > 0:
             df = pd.DataFrame(data)
-            df.columns = [col.strip() for col in df.columns]
+            df.columns = [str(col).strip() for col in df.columns]
             if 'Ma_NV' in df.columns:
                 df['Ma_NV'] = df['Ma_NV'].astype(str).str.strip()
+            # Đảm bảo luôn có đủ các cột bắt buộc, nếu thiếu thì bổ sung cột trống
+            for cot in cac_cot_mac_dinh:
+                if cot not in df.columns:
+                    df[cot] = ""
             return df
         else:
-            # Nếu Sheet trống (chưa có ai vote), trả về DataFrame trống NHƯNG PHẢI CÓ ĐỦ CỘT
+            # Nếu Sheet trống (chưa có ai vote) hoặc dữ liệu không hợp lệ, trả về DataFrame trống NHƯNG PHẢI CÓ ĐỦ CỘT
             return pd.DataFrame(columns=cac_cot_mac_dinh)
-    except:
+    except Exception:
         # Nếu lỗi kết nối mạng hoặc lỗi API, trả về cấu trúc cột mặc định để app không bị crash
         return pd.DataFrame(columns=cac_cot_mac_dinh)
         
 def tai_tran_dau_cloud():
+    cac_cot_tran = ["Ma_Tran", "Doi_Left", "Doi_Right", "Thoi_Gian_Mo_Form", "Thoi_Gian_Khoa_Form", "Ket_Qua_Thuc_Te", "Active"]
     try:
         url = f"{URL_API_SCRIPT}?worksheet=tran_dau"
-        response = requests.get(url, timeout=5)
-        df = pd.DataFrame(response.json())
+        response = requests.get(url, timeout=8)
+        if response.status_code != 200:
+            return pd.DataFrame(columns=cac_cot_tran)
+
+        data = response.json()
+        if not isinstance(data, list) or len(data) == 0:
+            return pd.DataFrame(columns=cac_cot_tran)
+
+        df = pd.DataFrame(data)
         if not df.empty:
-            df.columns = [col.strip() for col in df.columns]
+            df.columns = [str(col).strip() for col in df.columns]
             if 'Ma_Tran' in df.columns:
                 df['Ma_Tran'] = df['Ma_Tran'].astype(str).str.strip()
         return df
-    except:
-        return pd.DataFrame(columns=["Ma_Tran", "Doi_Left", "Doi_Right", "Thoi_Gian_Mo_Form", "Thoi_Gian_Khoa_Form", "Ket_Qua_Thuc_Te", "Active"])
+    except Exception:
+        return pd.DataFrame(columns=cac_cot_tran)
 
 @st.cache_data(ttl=60)
 def tai_danh_sach_nhan_vien():
     if os.path.exists(FILE_NHAN_VIEN):
-        df = pd.read_csv(FILE_NHAN_VIEN, sep=None, engine='python', encoding="utf-8-sig")
-        df.columns = [col.strip() for col in df.columns]
-        col_ma = df.columns[0]
-        df[col_ma] = df[col_ma].astype(str).str.strip()
-        return df
+        try:
+            df = pd.read_csv(FILE_NHAN_VIEN, sep=None, engine='python', encoding="utf-8-sig")
+            df.columns = [col.strip() for col in df.columns]
+            if df.empty or len(df.columns) == 0:
+                return pd.DataFrame()
+            col_ma = df.columns[0]
+            df[col_ma] = df[col_ma].astype(str).str.strip()
+            return df
+        except Exception:
+            return pd.DataFrame()
     return pd.DataFrame()
 
+@st.cache_data(ttl=300)
 def tai_danh_sach_48_doi():
     if os.path.exists(FILE_48_DOI):
-        df = pd.read_csv(FILE_48_DOI, sep=None, engine='python', encoding="utf-8-sig")
-        df.columns = [col.strip() for col in df.columns]
-        return df
+        try:
+            df = pd.read_csv(FILE_48_DOI, sep=None, engine='python', encoding="utf-8-sig")
+            df.columns = [col.strip() for col in df.columns]
+            return df
+        except Exception:
+            return pd.DataFrame()
     return pd.DataFrame()
 
 # Tải dữ liệu danh mục tĩnh ban đầu
@@ -101,6 +141,8 @@ if menu == "⚽ Dự Đoán Trận Đấu":
     # Kiểm tra mã nhân viên đăng nhập
     if ma_nv_input != "":
         if not df_nv.empty:
+            if len(df_nv.columns) < 3:
+                st.warning("⚠️ File danh sách nhân viên thiếu cột (cần ít nhất 3 cột: Mã NV, Họ Tên, Bộ Phận). Thông tin hiển thị có thể không chính xác.")
             col_ma_nv = df_nv.columns[0]
             col_ten_nv = df_nv.columns[1] if len(df_nv.columns) > 1 else col_ma_nv
             col_bophan = df_nv.columns[2] if len(df_nv.columns) > 2 else col_ma_nv
@@ -136,7 +178,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
         st.header("II. Dự đoán Nhà vô địch World Cup 2026")
         
         da_du_doan_vo_dich = pd.DataFrame()
-        if not df_phieu_hien_tai.empty:
+        if co_du_cot(df_phieu_hien_tai, ["Ma_NV", "Loai_Du_Doan", "Du_Doan"]):
             df_phieu_hien_tai["Ma_NV"] = df_phieu_hien_tai["Ma_NV"].astype(str).str.strip()
             da_du_doan_vo_dich = df_phieu_hien_tai[(df_phieu_hien_tai["Ma_NV"] == ma_nv_selected) & (df_phieu_hien_tai["Loai_Du_Doan"] == "Vo_Dich")]
         
@@ -224,7 +266,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                 st.markdown(f"#### ⚽ Trận {ma_tran}: {doi_left} vs {doi_right}")
                 
                 da_du_doan_tran = pd.DataFrame()
-                if not df_phieu_hien_tai.empty and "Ma_Tran_Hoac_Doi_Voi" in df_phieu_hien_tai.columns:
+                if co_du_cot(st.session_state["df_phieu_cache"], ["Ma_NV", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan"]):
                     st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"] = st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"].astype(str).str.strip()
                     da_du_doan_tran = st.session_state["df_phieu_cache"][
                         (st.session_state["df_phieu_cache"]["Ma_NV"] == ma_nv_selected) & 
@@ -306,7 +348,7 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     
     st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu (Vòng 1/32)")
     
-    if df_tran.empty or df_phieu.empty or df_phieu[df_phieu['Loai_Du_Doan'] == 'Tran_Dau'].empty:
+    if not co_du_cot(df_tran, ["Ma_Tran", "Ket_Qua_Thuc_Te"]) or not co_du_cot(df_phieu, ["Loai_Du_Doan"]) or df_phieu[df_phieu['Loai_Du_Doan'] == 'Tran_Dau'].empty:
         st.info("Chưa có đủ dữ liệu trên Cloud để phân tích kết quả xếp hạng.")
     else:
         dict_ket_qua = dict(zip(df_tran['Ma_Tran'].astype(str), df_tran['Ket_Qua_Thuc_Te']))
@@ -315,29 +357,33 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
         df_du_doan_tran['Ket_Qua_Thuc_Te'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].map(dict_ket_qua)
         
         df_du_doan_tran['Diem'] = df_du_doan_tran.apply(lambda r: 3 if r['Du_Doan'] == r['Ket_Qua_Thuc_Te'] else 0, axis=1)
-        df_du_doan_tran['Phut_Som_Hop_Le'] = df_du_doan_tran.apply(lambda r: int(r['Phut_Nop_Som']) if r['Diem'] == 3 else 0, axis=1)
+        df_du_doan_tran['Phut_Som_Hop_Le'] = df_du_doan_tran.apply(lambda r: an_toan_int(r.get('Phut_Nop_Som')) if r['Diem'] == 3 else 0, axis=1)
         
-        bxh_diem = df_du_doan_tran.groupby(['Ma_NV', 'Ho_Ten', 'Bo_Phan']).agg(
-            Tong_Diem=('Diem', 'sum'),
-            Tong_Phut_Som=('Phut_Som_Hop_Le', 'sum')
-        ).reset_index()
-        
-        bxh_diem = bxh_diem.sort_values(by=['Tong_Diem', 'Tong_Phut_Som'], ascending=[False, False]).reset_index(drop=True)
-        bxh_diem.index += 1
-        
-        st.dataframe(bxh_diem.rename(columns={
-            'Ma_NV': 'Mã Nhân Viên', 'Ho_Ten': 'Họ và Tên', 'Bo_Phan': 'Bộ Phận',
-            'Tong_Diem': 'Tổng Điểm', 'Tong_Phut_Som': 'Tổng Phút Sớm'
-        }), use_container_width=True)
+        if not co_du_cot(df_du_doan_tran, ["Ma_NV", "Ho_Ten", "Bo_Phan"]):
+            st.warning("⚠️ Dữ liệu phiếu bầu thiếu thông tin Mã NV/Họ tên/Bộ phận, không thể tổng hợp bảng xếp hạng.")
+        else:
+            bxh_diem = df_du_doan_tran.groupby(['Ma_NV', 'Ho_Ten', 'Bo_Phan']).agg(
+                Tong_Diem=('Diem', 'sum'),
+                Tong_Phut_Som=('Phut_Som_Hop_Le', 'sum')
+            ).reset_index()
+            
+            bxh_diem = bxh_diem.sort_values(by=['Tong_Diem', 'Tong_Phut_Som'], ascending=[False, False]).reset_index(drop=True)
+            bxh_diem.index += 1
+            
+            st.dataframe(bxh_diem.rename(columns={
+                'Ma_NV': 'Mã Nhân Viên', 'Ho_Ten': 'Họ và Tên', 'Bo_Phan': 'Bộ Phận',
+                'Tong_Diem': 'Tổng Điểm', 'Tong_Phut_Som': 'Tổng Phút Sớm'
+            }), use_container_width=True)
         
     st.markdown("---")
     st.header("🔮 2. Danh Sách Lựa Chọn Đội Vô Địch World Cup 2026")
-    df_vd_only = df_phieu[df_phieu['Loai_Du_Doan'] == 'Vo_Dich'].copy()
+    df_vd_only = df_phieu[df_phieu['Loai_Du_Doan'] == 'Vo_Dich'].copy() if co_du_cot(df_phieu, ["Loai_Du_Doan"]) else pd.DataFrame()
     
     if df_vd_only.empty:
         st.info("Chưa có thành viên nào thực hiện dự đoán Đội vô địch.")
     else:
-        df_vd_show = df_vd_only[['Ma_NV', 'Ho_Ten', 'Bo_Phan', 'Du_Doan', 'Timestamp']].reset_index(drop=True)
+        cac_cot_can = ['Ma_NV', 'Ho_Ten', 'Bo_Phan', 'Du_Doan', 'Timestamp']
+        df_vd_show = df_vd_only.reindex(columns=cac_cot_can).reset_index(drop=True)
         df_vd_show.index += 1
         st.dataframe(df_vd_show.rename(columns={
             'Ma_NV': 'Mã Nhân Viên', 'Ho_Ten': 'Họ và Tên', 'Bo_Phan': 'Bộ Phận',
@@ -381,12 +427,15 @@ elif menu == "🛠️ Quản Trị (Admin)":
                         "Thoi_Gian_Khoa_Form": dt_khoa_tudong.strftime("%Y-%m-%d %H:%M:%S"),
                         "Ket_Qua_Thuc_Te": "Chưa đá"
                     }
-                    res_a = requests.post(URL_API_SCRIPT, data=payload_add)
-                    if "Success" in res_a.text:
-                        st.success("Đã nạp trận đấu thành công!")
-                        st.rerun()
-                    else:
-                        st.error("Lỗi nạp trận: " + res_a.text)
+                    try:
+                        res_a = requests.post(URL_API_SCRIPT, data=payload_add, timeout=10)
+                        if "Success" in res_a.text:
+                            st.success("Đã nạp trận đấu thành công!")
+                            st.rerun()
+                        else:
+                            st.error("Lỗi nạp trận: " + res_a.text)
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"❌ Không thể kết nối tới Cloud (mạng chậm hoặc API lỗi). Vui lòng thử lại sau. Chi tiết: {e}")
                         
         with tab2:
             st.header("Cập nhật kết quả sau trận đấu")
@@ -408,11 +457,14 @@ elif menu == "🛠️ Quản Trị (Admin)":
                         "action": "update_result", "worksheet": "tran_dau",
                         "Ma_Tran": tran_selected, "Ket_Qua_Thuc_Te": kq_moi
                     }
-                    res_u = requests.post(URL_API_SCRIPT, data=payload_update)
-                    if "Success" in res_u.text:
-                        st.success("Đã cập nhật kết quả thành công!")
-                        st.rerun()
-                    else:
-                        st.error("Lỗi cập nhật tỷ số: " + res_u.text)
+                    try:
+                        res_u = requests.post(URL_API_SCRIPT, data=payload_update, timeout=10)
+                        if "Success" in res_u.text:
+                            st.success("Đã cập nhật kết quả thành công!")
+                            st.rerun()
+                        else:
+                            st.error("Lỗi cập nhật tỷ số: " + res_u.text)
+                    except requests.exceptions.RequestException as e:
+                        st.error(f"❌ Không thể kết nối tới Cloud (mạng chậm hoặc API lỗi). Vui lòng thử lại sau. Chi tiết: {e}")
     elif mat_khau != "":
         st.error("Sai mã bảo mật Quản trị!")
