@@ -259,22 +259,40 @@ if menu == "⚽ Dự Đoán Trận Đấu":
             
             df_tran['dt_khoa_sort'] = df_tran['Thoi_Gian_Khoa_Form'].apply(ep_kieu_tg_safe)
             
-            # ƯU TIÊN ĐƯA CÁC TRẬN SẮP KHÓA FORM LÊN ĐẦU
+            # ƯU TIÊN ĐƯA CÁC TRẬN SẮP KHÓA FORM (gần nhất) LÊN ĐẦU
             df_tran = df_tran.sort_values(by='dt_khoa_sort', ascending=True).reset_index(drop=True)
             
             # Tạo mặc định nếu cột Active chưa tồn tại trên Sheet
             if 'Active' not in df_tran.columns:
                 df_tran['Active'] = 'Hiện'
-                
-            # Phân nhóm Trận đấu theo trạng thái cột Active
-            df_dang_mo_hien = df_tran[df_tran['Active'].astype(str).str.strip() != 'Ẩn']
-            df_da_gom_an = df_tran[df_tran['Active'].astype(str).str.strip() == 'Ẩn']
+            
+            # Xác định danh sách mã trận mà nhân viên hiện tại ĐÃ bình chọn,
+            # để tự động đưa trận đó vào section Ẩn (thu gọn) - đúng concept:
+            # "bình chọn xong thì đưa vào section ẩn/hiện, mặc định là ẩn"
+            danh_sach_ma_da_vote = []
+            df_cache_check = st.session_state["df_phieu_cache"]
+            if co_du_cot(df_cache_check, ["Ma_NV", "Ma_Tran_Hoac_Doi_Voi", "Loai_Du_Doan"]):
+                df_cache_check = df_cache_check.copy()
+                df_cache_check["Ma_Tran_Hoac_Doi_Voi"] = df_cache_check["Ma_Tran_Hoac_Doi_Voi"].astype(str).str.strip()
+                danh_sach_ma_da_vote = df_cache_check[
+                    (df_cache_check["Ma_NV"] == ma_nv_selected) &
+                    (df_cache_check["Loai_Du_Doan"] == "Tran_Dau")
+                ]["Ma_Tran_Hoac_Doi_Voi"].tolist()
+            
+            df_tran['Da_Vote'] = df_tran['Ma_Tran'].astype(str).str.strip().isin(danh_sach_ma_da_vote)
+            
+            # Phân nhóm Trận đấu:
+            # - Section HIỆN (mặc định mở): các trận CHƯA bình chọn và Active != 'Ẩn', trận gần khóa nhất lên đầu
+            # - Section ẨN (mặc định thu gọn): các trận ĐÃ bình chọn HOẶC bị Admin đặt Active = 'Ẩn'
+            df_dang_mo_hien = df_tran[(df_tran['Active'].astype(str).str.strip() != 'Ẩn') & (~df_tran['Da_Vote'])]
+            df_da_gom_an = df_tran[(df_tran['Active'].astype(str).str.strip() == 'Ẩn') | (df_tran['Da_Vote'])]
             
             # Hàm dựng giao diện từng dòng trận đấu
             def render_giao_dien_tran(row_data, idx_key):
                 ma_tran = str(row_data.get("Ma_Tran", idx_key)).strip()
                 doi_left = row_data.get("Doi_Left", "Đội A")
                 doi_right = row_data.get("Doi_Right", "Đội B")
+                han_mo = ep_kieu_tg_safe(row_data.get("Thoi_Gian_Mo_Form"))
                 han_khoa = ep_kieu_tg_safe(row_data.get("Thoi_Gian_Khoa_Form"))
                 
                 st.markdown(f"#### ⚽ Trận {ma_tran}: {doi_left} vs {doi_right}")
@@ -287,8 +305,11 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                         (st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"] == ma_tran)
                     ]
                 
+                # Trường hợp: Cổng bình chọn CHƯA MỞ (chưa tới Thoi_Gian_Mo_Form) - bug cũ: không hề kiểm tra mốc này
+                if thoi_gian_hien_tai < han_mo:
+                    st.warning(f"⏳ Cổng bình chọn trận này chưa mở. Sẽ mở lúc: **{han_mo.strftime('%H:%M %d/%m/%Y')}**.")
                 # Trường hợp: Trận đấu đã quá hạn khóa cổng
-                if thoi_gian_hien_tai > han_khoa:
+                elif thoi_gian_hien_tai > han_khoa:
                     if not da_du_doan_tran.empty:
                         st.info(f"🔒 Đã đóng cổng. Lựa chọn chính thức của bạn: **{doi_left} [{da_du_doan_tran['Du_Doan'].iloc[0]}] {doi_right}**")
                     else:
@@ -340,16 +361,16 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                                 st.rerun()
                 st.markdown("---")
 
-            # 1. Vẽ cụm trận đang để trạng thái Hiện lên màn hình chính
+            # 1. Vẽ cụm các trận CHƯA bình chọn (và không bị Admin ẩn) lên màn hình chính, trận gần nhất lên đầu
             if not df_dang_mo_hien.empty:
                 for index, row in df_dang_mo_hien.iterrows():
                     render_giao_dien_tran(row, f"hien_{index}")
             else:
-                st.info("Không có trận đấu nào được đặt trạng thái 'Hiện'.")
+                st.info("🎉 Bạn đã bình chọn hết các trận hiện có! Xem lại lựa chọn ở mục thu gọn bên dưới.")
                 
-            # 2. Vẽ cụm trận đấu đã Ẩn vào nút Expander thu gọn gọn gàng
+            # 2. Vẽ cụm các trận ĐÃ bình chọn / bị Admin ẩn vào Expander thu gọn (mặc định đóng)
             if not df_da_gom_an.empty:
-                with st.expander("📦 Xem danh sách các trận đấu cũ đã ẩn / lưu trữ"):
+                with st.expander(f"📦 Xem các trận đã bình chọn / đã ẩn ({len(df_da_gom_an)} trận)", expanded=False):
                     for index, row in df_da_gom_an.iterrows():
                         render_giao_dien_tran(row, f"an_{index}")
 
