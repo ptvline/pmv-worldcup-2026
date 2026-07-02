@@ -77,6 +77,12 @@ def tai_tran_dau_cloud():
             df.columns = [str(col).strip() for col in df.columns]
             if 'Ma_Tran' in df.columns:
                 df['Ma_Tran'] = df['Ma_Tran'].astype(str).str.strip()
+                # LỌC BỎ CÁC DÒNG "RÁC"/TRỐNG: Google Apps Script đôi khi trả về thêm
+                # các dòng trống phía dưới vùng dữ liệu thực (do dropdown/định dạng ở
+                # cột Ket_Qua_Thuc_Te kéo dài quá số dòng thực tế). Nếu không lọc, các
+                # dòng này sẽ hiện thành "trận ma" (Trận : vs, hạn cuối = giờ hiện tại).
+                df = df[(df['Ma_Tran'] != "") & (df['Ma_Tran'].str.lower() != "nan")]
+                df = df.reset_index(drop=True)
         return df
     except Exception:
         return pd.DataFrame(columns=cac_cot_tran)
