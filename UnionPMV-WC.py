@@ -253,7 +253,13 @@ if menu == "⚽ Dự Đoán Trận Đấu":
             # Hàm xử lý thời gian an toàn, loại bỏ 100% lỗi so sánh lệch múi giờ
             def ep_kieu_tg_safe(val):
                 try:
-                    return pd.to_datetime(val).to_pydatetime().replace(tzinfo=None)
+                    dt_parsed = pd.to_datetime(val)
+                    # QUAN TRỌNG: giá trị rỗng/không hợp lệ sẽ trả về NaT thay vì raise exception,
+                    # nên phải kiểm tra riêng, nếu không NaT sẽ "lọt" qua try/except và làm crash
+                    # ở bước .strftime() phía sau (NaTType does not support strftime).
+                    if pd.isna(dt_parsed):
+                        return thoi_gian_hien_tai
+                    return dt_parsed.to_pydatetime().replace(tzinfo=None)
                 except:
                     return thoi_gian_hien_tai
             
