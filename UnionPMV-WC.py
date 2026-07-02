@@ -265,6 +265,15 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                     # ở bước .strftime() phía sau (NaTType does not support strftime).
                     if pd.isna(dt_parsed):
                         return thoi_gian_hien_tai
+                    # QUAN TRỌNG (fix lệch giờ): Các trận nhập qua Google Sheet dạng text thuần
+                    # (vd "2026-06-29 10:00:00") sẽ được parse thành giờ "naive" (không tz) -> giữ nguyên.
+                    # Nhưng các trận được ghi qua Admin form thường được Apps Script lưu dưới dạng
+                    # Date object, khi trả JSON sẽ tự serialize thành chuỗi ISO UTC (hậu tố "Z"),
+                    # ví dụ giờ Việt Nam 10:00 sẽ trả về "...T03:00:00.000Z". Nếu chỉ cắt bỏ tzinfo mà
+                    # không quy đổi, giờ sẽ bị lệch SỚM HƠN 7 tiếng so với giờ đã thiết lập trong Sheet.
+                    # => Phải convert đúng sang giờ Việt Nam (UTC+7) trước khi bỏ tzinfo.
+                    if dt_parsed.tzinfo is not None:
+                        dt_parsed = dt_parsed.tz_convert('Asia/Ho_Chi_Minh')
                     return dt_parsed.to_pydatetime().replace(tzinfo=None)
                 except:
                     return thoi_gian_hien_tai
