@@ -404,38 +404,86 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     
     # Ép buộc tải mới từ Cloud khi xem bảng xếp hạng để đảm bảo điểm số chính xác nhất
     df_phieu = tai_phieu_bau_cloud()
-    
-    st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu")
-    
-    if not co_du_cot(df_tran, ["Ma_Tran", "Ket_Qua_Thuc_Te"]) or not co_du_cot(df_phieu, ["Loai_Du_Doan"]) or df_phieu[df_phieu['Loai_Du_Doan'] == 'Tran_Dau'].empty:
-        st.info("Chưa có đủ dữ liệu trên Cloud để phân tích kết quả xếp hạng.")
-    else:
-        dict_ket_qua = dict(zip(df_tran['Ma_Tran'].astype(str), df_tran['Ket_Qua_Thuc_Te']))
-        df_du_doan_tran = df_phieu[df_phieu['Loai_Du_Doan'] == 'Tran_Dau'].copy()
-        df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].astype(str)
+
+    # --- HÀM TÍNH BẢNG XẾP HẠNG DÙNG CHUNG (có thể lọc theo danh sách mã trận của từng vòng) ---
+    def tinh_bang_xep_hang(df_phieu_nguon, df_tran_nguon, danh_sach_ma_tran=None):
+        """
+        Tính bảng tổng soát điểm dự đoán trận đấu.
+        - danh_sach_ma_tran = None -> tính TẤT CẢ các trận (bảng tổng chung cuộc).
+        - danh_sach_ma_tran = [list mã trận] -> chỉ tính riêng các trận thuộc danh sách đó (theo từng vòng).
+        Trả về:
+            None           -> thiếu dữ liệu cột bắt buộc (Mã NV/Họ tên/Bộ phận)
+            DataFrame rỗng -> không có dữ liệu phù hợp (chưa ai dự đoán / vòng đấu chưa có kết quả)
+            DataFrame      -> bảng xếp hạng đã tính xong, đã sort và đánh số thứ tự
+        """
+        if not co_du_cot(df_tran_nguon, ["Ma_Tran", "Ket_Qua_Thuc_Te"]) or not co_du_cot(df_phieu_nguon, ["Loai_Du_Doan"]) or df_phieu_nguon[df_phieu_nguon['Loai_Du_Doan'] == 'Tran_Dau'].empty:
+            return pd.DataFrame()
+
+        dict_ket_qua = dict(zip(df_tran_nguon['Ma_Tran'].astype(str), df_tran_nguon['Ket_Qua_Thuc_Te']))
+        df_du_doan_tran = df_phieu_nguon[df_phieu_nguon['Loai_Du_Doan'] == 'Tran_Dau'].copy()
+        df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].astype(str).str.strip()
+
+        # Lọc riêng các trận thuộc vòng đấu được chỉ định (nếu có)
+        if danh_sach_ma_tran is not None:
+            df_du_doan_tran = df_du_doan_tran[df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].isin(danh_sach_ma_tran)]
+
+        if df_du_doan_tran.empty:
+            return pd.DataFrame()
+
         df_du_doan_tran['Ket_Qua_Thuc_Te'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].map(dict_ket_qua)
-        
         df_du_doan_tran['Diem'] = df_du_doan_tran.apply(lambda r: 3 if r['Du_Doan'] == r['Ket_Qua_Thuc_Te'] else 0, axis=1)
         df_du_doan_tran['Phut_Som_Hop_Le'] = df_du_doan_tran.apply(lambda r: an_toan_int(r.get('Phut_Nop_Som')) if r['Diem'] == 3 else 0, axis=1)
-        
+
         if not co_du_cot(df_du_doan_tran, ["Ma_NV", "Ho_Ten", "Bo_Phan"]):
+            return None
+
+        bxh = df_du_doan_tran.groupby(['Ma_NV', 'Ho_Ten', 'Bo_Phan']).agg(
+            Tong_Diem=('Diem', 'sum'),
+            Tong_Phut_Som=('Phut_Som_Hop_Le', 'sum')
+        ).reset_index()
+
+        bxh = bxh.sort_values(by=['Tong_Diem', 'Tong_Phut_Som'], ascending=[False, False]).reset_index(drop=True)
+        bxh.index += 1
+        return bxh
+
+    # --- HÀM HIỂN THỊ BẢNG XẾP HẠNG RA GIAO DIỆN ---
+    def hien_thi_bang_xep_hang(bxh, thong_bao_khi_rong):
+        if bxh is None:
             st.warning("⚠️ Dữ liệu phiếu bầu thiếu thông tin Mã NV/Họ tên/Bộ phận, không thể tổng hợp bảng xếp hạng.")
+        elif bxh.empty:
+            st.info(thong_bao_khi_rong)
         else:
-            bxh_diem = df_du_doan_tran.groupby(['Ma_NV', 'Ho_Ten', 'Bo_Phan']).agg(
-                Tong_Diem=('Diem', 'sum'),
-                Tong_Phut_Som=('Phut_Som_Hop_Le', 'sum')
-            ).reset_index()
-            
-            bxh_diem = bxh_diem.sort_values(by=['Tong_Diem', 'Tong_Phut_Som'], ascending=[False, False]).reset_index(drop=True)
-            bxh_diem.index += 1
-            
-            st.dataframe(bxh_diem.rename(columns={
+            st.dataframe(bxh.rename(columns={
                 'Ma_NV': 'Mã Nhân Viên', 'Ho_Ten': 'Họ và Tên', 'Bo_Phan': 'Bộ Phận',
                 'Tong_Diem': 'Tổng Điểm', 'Tong_Phut_Som': 'Tổng Phút Sớm'
             }), use_container_width=True)
-        
+
+    # --- ĐỊNH NGHĨA DANH SÁCH MÃ TRẬN CHO TỪNG VÒNG ĐẤU ---
+    ma_tran_vong_16 = [f"16-{i:02d}" for i in range(1, 17)]   # 16-01 -> 16-16 (Vòng 1/16)
+    ma_tran_vong_8 = [f"16_{i:02d}" for i in range(1, 9)]     # 16_01 -> 16_08 (Vòng 1/8)
+    ma_tran_vong_4 = [f"4-{i:02d}" for i in range(1, 5)]      # 4-01 -> 4-04 (Vòng 1/4 - Tứ kết)
+
+    st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu (Chung Cuộc)")
+    bxh_chung_cuoc = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=None)
+    hien_thi_bang_xep_hang(bxh_chung_cuoc, "Chưa có đủ dữ liệu trên Cloud để phân tích kết quả xếp hạng.")
+
     st.markdown("---")
-    st.header("🔮 2. Danh Sách Lựa Chọn Đội Vô Địch World Cup 2026")
+    st.header("🥈 2. Bảng Tổng Soát Vòng 1/16")
+    bxh_vong_16 = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=ma_tran_vong_16)
+    hien_thi_bang_xep_hang(bxh_vong_16, "Chưa có dữ liệu dự đoán/kết quả cho Vòng 1/16.")
+
+    st.markdown("---")
+    st.header("🥉 3. Bảng Tổng Soát Vòng 1/8")
+    bxh_vong_8 = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=ma_tran_vong_8)
+    hien_thi_bang_xep_hang(bxh_vong_8, "Chưa có dữ liệu dự đoán/kết quả cho Vòng 1/8.")
+
+    st.markdown("---")
+    st.header("🎖️ 4. Bảng Tổng Soát Vòng 1/4 (Tứ Kết)")
+    bxh_vong_4 = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=ma_tran_vong_4)
+    hien_thi_bang_xep_hang(bxh_vong_4, "Chưa có dữ liệu dự đoán/kết quả cho Vòng Tứ Kết.")
+
+    st.markdown("---")
+    st.header("🔮 5. Danh Sách Lựa Chọn Đội Vô Địch World Cup 2026")
     df_vd_only = df_phieu[df_phieu['Loai_Du_Doan'] == 'Vo_Dich'].copy() if co_du_cot(df_phieu, ["Loai_Du_Doan"]) else pd.DataFrame()
     
     if df_vd_only.empty:
