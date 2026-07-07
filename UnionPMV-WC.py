@@ -189,8 +189,8 @@ if menu == "⚽ Dự Đoán Trận Đấu":
             df_phieu_hien_tai["Ma_NV"] = df_phieu_hien_tai["Ma_NV"].astype(str).str.strip()
             da_du_doan_vo_dich = df_phieu_hien_tai[(df_phieu_hien_tai["Ma_NV"] == ma_nv_selected) & (df_phieu_hien_tai["Loai_Du_Doan"] == "Vo_Dich")]
         
-        # Đóng cổng cố định 03:00 sáng ngày 20/07/2026
-        thoi_gian_khoa_vd = datetime.strptime("2026-07-20 03:00:00", "%Y-%m-%d %H:%M:%S")
+        # Đóng cổng cố định 8:45 sáng ngày 04/07/2026
+        thoi_gian_khoa_vd = datetime.strptime("2026-07-04 08:45:00", "%Y-%m-%d %H:%M:%S")
         
         if thoi_gian_hien_tai > thoi_gian_khoa_vd:
             if not da_du_doan_vo_dich.empty:
@@ -249,7 +249,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
 
         # --- III. DỰ ĐOÁN KẾT QUẢ TRẬN ĐẤU (VÒNG 1/32) ---
         st.markdown("---")
-        st.header("III. Dự đoán kết quả trận đấu (Vòng 1/32)")
+        st.header("III. Dự đoán kết quả trận đấu")
         
         if df_tran.empty:
             st.info("Hiện tại chưa có lịch trận đấu nào được kích hoạt trên hệ thống.")
@@ -405,7 +405,7 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     # Ép buộc tải mới từ Cloud khi xem bảng xếp hạng để đảm bảo điểm số chính xác nhất
     df_phieu = tai_phieu_bau_cloud()
     
-    st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu (Vòng 1/32)")
+    st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu")
     
     if not co_du_cot(df_tran, ["Ma_Tran", "Ket_Qua_Thuc_Te"]) or not co_du_cot(df_phieu, ["Loai_Du_Doan"]) or df_phieu[df_phieu['Loai_Du_Doan'] == 'Tran_Dau'].empty:
         st.info("Chưa có đủ dữ liệu trên Cloud để phân tích kết quả xếp hạng.")
