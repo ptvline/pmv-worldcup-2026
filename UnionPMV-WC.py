@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 import os
+import re
 import requests
 
 # Cấu hình trang hiển thị
@@ -37,6 +38,11 @@ def chuan_hoa_ma_tran(ma):
     - chữ hoa/thường
     - khoảng trắng thừa ở đầu/cuối hoặc ở giữa (vd "4- 01")
     - các loại gạch ngang unicode trông giống nhau (–, —, − vs -)
+    - SỐ 0 Ở ĐẦU mỗi cụm số (vd "04-01" so với "4-01" phải được coi là CÙNG 1 trận -
+      đây là nguyên nhân phổ biến khi phiếu bầu cũ lưu "04-01" nhưng Admin nạp lại
+      trận với mã "4-01" không có số 0, khiến phiếu cũ bị "mất tích").
+    LƯU Ý: KHÔNG gộp dấu gạch ngang "-" với gạch dưới "_" làm một, vì 2 ký tự này
+    đang được dùng để PHÂN BIỆT vòng đấu (vd "16-01" là Vòng 1/16, "16_01" là Vòng 1/8).
     Hàm này KHÔNG thay đổi giá trị Ma_Tran gốc dùng để hiển thị cho người dùng.
     """
     if ma is None:
@@ -45,6 +51,8 @@ def chuan_hoa_ma_tran(ma):
     for ky_tu_gach in ["–", "—", "−"]:
         s = s.replace(ky_tu_gach, "-")
     s = "".join(s.split())  # gộp/xóa mọi khoảng trắng nội bộ
+    # Xóa số 0 thừa ở đầu mỗi cụm chữ số liên tiếp (không đụng tới dấu "-"/"_")
+    s = re.sub(r'(?<![0-9])0+(?=[0-9])', '', s)
     return s
 
 # --- CÁC HÀM TẢI DỮ LIỆU TỪ CLOUD ---
@@ -142,6 +150,21 @@ if "ma_nv_ghi_nho" not in st.session_state:
 if "df_phieu_cache" not in st.session_state:
     st.session_state["df_phieu_cache"] = None
 
+if "thong_bao_loi_luu" not in st.session_state:
+    st.session_state["thong_bao_loi_luu"] = None
+
+def kiem_tra_luu_thanh_cong(response_text):
+    """Kiểm tra phản hồi từ Apps Script có thực sự lưu thành công hay không.
+    Không chỉ dựa vào từ khóa 'Success' đơn thuần vì có thể lẫn trong thông báo lỗi
+    (vd JSON trả về chứa cả 'success:false'); kiểm tra chặt hơn bằng cách loại trừ
+    các từ khóa lỗi phổ biến."""
+    if not response_text:
+        return False
+    text_lower = str(response_text).strip().lower()
+    co_tu_thanh_cong = "success" in text_lower
+    co_tu_loi = ("error" in text_lower) or ("lỗi" in text_lower) or ("false" in text_lower)
+    return co_tu_thanh_cong and not co_tu_loi
+
 # --- CHIA MENU CHỨC NĂNG ---
 menu = st.sidebar.radio("DANH MỤC CHỨC NĂNG", ["⚽ Dự Đoán Trận Đấu", "📊 Bảng Xếp Hạng (Leaderboard)", "🛠️ Quản Trị (Admin)"])
 
@@ -196,6 +219,14 @@ if menu == "⚽ Dự Đoán Trận Đấu":
 
     if hop_le:
         thoi_gian_hien_tai = datetime.now() + timedelta(hours=7)
+
+        # Hiển thị cảnh báo LƯU THẤT BẠI (nếu có, từ lần bấm "Xác nhận gửi" trước đó) một cách
+        # rõ ràng và KHÔNG tự biến mất như st.toast, để nhân viên biết chắc mình cần gửi lại.
+        if st.session_state.get("thong_bao_loi_luu"):
+            st.error(st.session_state["thong_bao_loi_luu"])
+            if st.button("Đã hiểu, ẩn cảnh báo này"):
+                st.session_state["thong_bao_loi_luu"] = None
+                st.rerun()
         
         # --- II. DỰ ĐOÁN NHÀ VÔ ĐỊCH ---
         st.markdown("---")
@@ -236,31 +267,41 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                         "Du_Doan": doi_vo_dich, "Phut_Nop_Som": phut_som_vd,
                         "Thiet_Bi": thong_tin_may_tinh
                     }
-                    
-                    # Kiểm tra an toàn trước khi tạo mask để tránh KeyError
-                    df_cache = st.session_state["df_phieu_cache"]
-                    
-                    if "Ma_NV" in df_cache.columns and "Loai_Du_Doan" in df_cache.columns:
-                        mask_vd = (df_cache["Ma_NV"] == ma_nv_selected) & (df_cache["Loai_Du_Doan"] == "Vo_Dich")
-                        if mask_vd.any():
-                            st.session_state["df_phieu_cache"].loc[mask_vd, "Du_Doan"] = doi_vo_dich
-                            st.session_state["df_phieu_cache"].loc[mask_vd, "Timestamp"] = payload_vd["Timestamp"]
-                        else:
-                            st.session_state["df_phieu_cache"] = pd.concat([df_cache, pd.DataFrame([payload_vd])], ignore_index=True)
-                    else:
-                        # Nếu cache chưa có cột (do sheet rỗng), tạo mới luôn một DataFrame từ payload
-                        st.session_state["df_phieu_cache"] = pd.DataFrame([payload_vd])
 
-                    # ĐẨY DỮ LIỆU LÊN CLOUD - đây là bước bị THIẾU trong code gốc,
-                    # khiến dự đoán Vô địch chỉ lưu tạm ở RAM mà không bao giờ ghi vào Google Sheet
+                    # ĐẨY DỮ LIỆU LÊN CLOUD TRƯỚC; chỉ cập nhật cache RAM khi Cloud xác nhận
+                    # lưu thành công, để tránh giao diện hiện "đã lưu" trong khi thực tế
+                    # Google Sheet chưa hề nhận được (phiếu sẽ biến mất sau khi F5).
                     try:
                         res_vd = requests.post(URL_API_SCRIPT, data=payload_vd, timeout=8)
-                        if "Success" in res_vd.text:
-                            st.toast(f"🏆 Đã lưu dự đoán Đội vô địch: {doi_vo_dich}")
-                        else:
-                            st.warning(f"⚠️ Đã lưu tạm trên trình duyệt nhưng Cloud phản hồi bất thường: {res_vd.text}")
+                        luu_thanh_cong_vd = kiem_tra_luu_thanh_cong(res_vd.text)
+                        noi_dung_phan_hoi_vd = res_vd.text
                     except requests.exceptions.RequestException as e:
-                        st.warning(f"⚠️ Đã lưu tạm trên trình duyệt, nhưng KHÔNG kết nối được Cloud để lưu vĩnh viễn. Vui lòng bấm lại nút Xác nhận khi có mạng ổn định. Chi tiết lỗi: {e}")
+                        luu_thanh_cong_vd = False
+                        noi_dung_phan_hoi_vd = str(e)
+
+                    if luu_thanh_cong_vd:
+                        # Kiểm tra an toàn trước khi tạo mask để tránh KeyError
+                        df_cache = st.session_state["df_phieu_cache"]
+
+                        if "Ma_NV" in df_cache.columns and "Loai_Du_Doan" in df_cache.columns:
+                            mask_vd = (df_cache["Ma_NV"] == ma_nv_selected) & (df_cache["Loai_Du_Doan"] == "Vo_Dich")
+                            if mask_vd.any():
+                                st.session_state["df_phieu_cache"].loc[mask_vd, "Du_Doan"] = doi_vo_dich
+                                st.session_state["df_phieu_cache"].loc[mask_vd, "Timestamp"] = payload_vd["Timestamp"]
+                            else:
+                                st.session_state["df_phieu_cache"] = pd.concat([df_cache, pd.DataFrame([payload_vd])], ignore_index=True)
+                        else:
+                            # Nếu cache chưa có cột (do sheet rỗng), tạo mới luôn một DataFrame từ payload
+                            st.session_state["df_phieu_cache"] = pd.DataFrame([payload_vd])
+
+                        st.session_state["thong_bao_loi_luu"] = None
+                        st.toast(f"🏆 Đã lưu dự đoán Đội vô địch: {doi_vo_dich}")
+                    else:
+                        st.session_state["thong_bao_loi_luu"] = (
+                            f"❌ LƯU THẤT BẠI cho dự đoán Đội vô địch ({doi_vo_dich}). Lựa chọn của bạn "
+                            f"CHƯA được ghi nhận lên hệ thống, vui lòng chọn lại và bấm 'Xác nhận Đội vô địch' "
+                            f"một lần nữa. (Phản hồi từ Cloud: {noi_dung_phan_hoi_vd})"
+                        )
 
                     st.rerun()
 
@@ -395,27 +436,41 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                                     "Thiet_Bi": thong_tin_may_tinh
                                 }
                                 
-                                # TĂNG TỐC SIÊU TỐC: Ghi trực tiếp vào biến cache trong RAM trước
-                                df_c = st.session_state["df_phieu_cache"]
-                                mask_t = (df_c["Ma_NV"] == ma_nv_selected) & (df_c["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran) == chuan_hoa_ma_tran(ma_tran))
-                                
-                                if mask_t.any():
-                                    df_c.loc[mask_t, "Du_Doan"] = lua_chon
-                                    df_c.loc[mask_t, "Timestamp"] = payload_tran["Timestamp"]
-                                    df_c.loc[mask_t, "Phut_Nop_Som"] = phut_som_tran
-                                else:
-                                    st.session_state["df_phieu_cache"] = pd.concat([df_c, pd.DataFrame([payload_tran])], ignore_index=True)
-                                
-                                # Đẩy dữ liệu lên Cloud - hiện rõ kết quả để phát hiện nếu Cloud từ chối cập nhật
+                                # Đẩy dữ liệu lên Cloud TRƯỚC; chỉ cập nhật cache RAM khi Cloud
+                                # xác nhận lưu thành công. Trước đây code cập nhật RAM ngay lập tức
+                                # (optimistic) rồi mới gửi Cloud, khiến giao diện hiện "đã vote"
+                                # NGAY CẢ KHI việc lưu lên Cloud thất bại -> qua lần F5 sau (tải lại
+                                # dữ liệu thật từ Cloud) thì phiếu biến mất, gây hiểu lầm mất dữ liệu.
                                 try:
                                     res_t = requests.post(URL_API_SCRIPT, data=payload_tran, timeout=8)
-                                    if "Success" in res_t.text:
-                                        st.toast(f"⚽ Đã lưu Trận {ma_tran}: {lua_chon}")
+                                    luu_thanh_cong = kiem_tra_luu_thanh_cong(res_t.text)
+                                    noi_dung_phan_hoi = res_t.text
+                                except requests.exceptions.RequestException as e:
+                                    luu_thanh_cong = False
+                                    noi_dung_phan_hoi = str(e)
+
+                                if luu_thanh_cong:
+                                    df_c = st.session_state["df_phieu_cache"]
+                                    mask_t = (df_c["Ma_NV"] == ma_nv_selected) & (df_c["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran) == chuan_hoa_ma_tran(ma_tran))
+
+                                    if mask_t.any():
+                                        df_c.loc[mask_t, "Du_Doan"] = lua_chon
+                                        df_c.loc[mask_t, "Timestamp"] = payload_tran["Timestamp"]
+                                        df_c.loc[mask_t, "Phut_Nop_Som"] = phut_som_tran
                                     else:
-                                        st.toast(f"⚠️ Trận {ma_tran}: Cloud phản hồi bất thường, vui lòng kiểm tra lại sau!", icon="⚠️")
-                                except requests.exceptions.RequestException:
-                                    st.toast(f"⚠️ Trận {ma_tran}: Không kết nối được Cloud, vui lòng thử lại!", icon="⚠️")
-                                
+                                        st.session_state["df_phieu_cache"] = pd.concat([df_c, pd.DataFrame([payload_tran])], ignore_index=True)
+
+                                    st.session_state["thong_bao_loi_luu"] = None
+                                    st.toast(f"⚽ Đã lưu Trận {ma_tran}: {lua_chon}")
+                                else:
+                                    # KHÔNG cập nhật cache RAM -> giao diện sẽ giữ đúng trạng thái
+                                    # "chưa vote" (đúng với thực tế trên Cloud), tránh hiện sai.
+                                    st.session_state["thong_bao_loi_luu"] = (
+                                        f"❌ LƯU THẤT BẠI cho Trận {ma_tran} ({doi_left} [{lua_chon}] {doi_right}). "
+                                        f"Lựa chọn của bạn CHƯA được ghi nhận lên hệ thống, vui lòng chọn lại và "
+                                        f"bấm 'Xác nhận gửi!' một lần nữa. (Phản hồi từ Cloud: {noi_dung_phan_hoi})"
+                                    )
+
                                 st.rerun()
                 st.markdown("---")
 
