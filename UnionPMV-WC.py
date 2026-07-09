@@ -189,7 +189,7 @@ df_nv = tai_danh_sach_nhan_vien()
 df_tran = tai_tran_dau_cloud()
 df_48_doi = tai_danh_sach_48_doi()
 
-# --- KHỞI TẠO BỘ NHỚ TẠM (SESSION STATE) ĐỂ TĂNG TỐC ĐỘ ----
+# --- KHỞI TẠO BỘ NHỚ TẠM (SESSION STATE) ĐỂ TĂNG TỐC ĐỘ ---
 if "ma_nv_ghi_nho" not in st.session_state:
     st.session_state["ma_nv_ghi_nho"] = ""
 
@@ -432,34 +432,6 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                 (df_tran['Da_Dong_Cong'])
             ]
 
-            # --- KHUNG DEBUG TẠM THỜI: giúp xác định chính xác nguyên nhân lệch mã trận
-            # ngay trên web, không cần đoán qua code. Hiển thị repr() của giá trị THÔ và
-            # giá trị đã CHUẨN HÓA (bao gồm các khóa suy ngược từ Ngày tháng nếu có).
-            with st.expander("🔧 Debug: Kiểm tra dữ liệu thô (bấm để mở)", expanded=False):
-                st.caption(f"Mã NV bạn đang đăng nhập: `{repr(ma_nv_selected)}` → chuẩn hóa: `{repr(chuan_hoa_ma_nv(ma_nv_selected))}`")
-                st.markdown("**Danh sách Ma_Tran trong sheet `tran_dau` (đã chuẩn hóa):**")
-                st.dataframe(df_tran[['Ma_Tran', 'Ma_Tran_Key', 'Da_Vote']].assign(
-                    Ma_Tran_repr=lambda d: d['Ma_Tran'].apply(repr)
-                ), use_container_width=True)
-
-                st.markdown(f"**Các phiếu bầu Trận đấu của Mã NV `{ma_nv_selected}` trong cache (đã chuẩn hóa, kèm khóa suy ngược từ Ngày tháng nếu có):**")
-                df_debug_phieu = st.session_state["df_phieu_cache"]
-                if co_du_cot(df_debug_phieu, ["Ma_NV", "Ma_Tran_Hoac_Doi_Voi", "Loai_Du_Doan"]):
-                    df_debug_phieu = df_debug_phieu.copy()
-                    df_debug_phieu["Ma_NV_Key"] = df_debug_phieu["Ma_NV"].apply(chuan_hoa_ma_nv)
-                    df_debug_phieu["Ma_Tran_KhoaSet"] = df_debug_phieu["Ma_Tran_Hoac_Doi_Voi"].apply(lambda x: sorted(sinh_cac_khoa_ma_tran(x)))
-                    df_debug_phieu["Ma_NV_repr"] = df_debug_phieu["Ma_NV"].apply(repr)
-                    df_debug_phieu["Ma_Tran_Hoac_Doi_Voi_repr"] = df_debug_phieu["Ma_Tran_Hoac_Doi_Voi"].apply(repr)
-                    df_debug_show = df_debug_phieu[
-                        (df_debug_phieu["Loai_Du_Doan"] == "Tran_Dau") &
-                        (df_debug_phieu["Ma_NV_Key"] == chuan_hoa_ma_nv(ma_nv_selected))
-                    ][["Ma_NV_repr", "Ma_NV_Key", "Ma_Tran_Hoac_Doi_Voi_repr", "Ma_Tran_KhoaSet", "Du_Doan", "Timestamp"]]
-                    st.dataframe(df_debug_show, use_container_width=True)
-                    if df_debug_show.empty:
-                        st.warning("Không tìm thấy phiếu Trận_Dau nào của Mã NV này trong cache đang tải — nghĩa là bộ nhớ tạm (session cache) KHÔNG chứa dữ liệu bạn mong đợi. Hãy kiểm tra Mã NV nhập vào web có đúng 100% với Mã NV trong sheet không (xem cột Ma_NV_repr ở trên).")
-                else:
-                    st.warning("df_phieu_cache thiếu cột cần thiết hoặc rỗng — có thể do lỗi tải dữ liệu từ Cloud.")
-            
             # Hàm dựng giao diện từng dòng trận đấu
             def render_giao_dien_tran(row_data, idx_key):
                 ma_tran = str(row_data.get("Ma_Tran", idx_key)).strip()
