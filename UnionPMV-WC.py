@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import os
 import re
+import unicodedata
 import requests
 
 # Cấu hình trang hiển thị
@@ -36,23 +37,41 @@ def chuan_hoa_ma_tran(ma):
     Mục đích: tránh tình trạng phiếu bầu cũ bị "mồ côi" (mất thông tin đã vote,
     mất điểm ở BXH) chỉ vì mã trận khi Admin nạp/nạp lại lệch nhau về:
     - chữ hoa/thường
-    - khoảng trắng thừa ở đầu/cuối hoặc ở giữa (vd "4- 01")
+    - khoảng trắng thừa ở đầu/cuối hoặc ở giữa (vd "4- 01"), kể cả khoảng trắng
+      không xuống dòng (non-breaking space) hay các ký tự VÔ HÌNH (zero-width
+      space, BOM...) thường dính theo khi copy-paste từ Excel/Google Sheets
     - các loại gạch ngang unicode trông giống nhau (–, —, − vs -)
-    - SỐ 0 Ở ĐẦU mỗi cụm số (vd "04-01" so với "4-01" phải được coi là CÙNG 1 trận -
-      đây là nguyên nhân phổ biến khi phiếu bầu cũ lưu "04-01" nhưng Admin nạp lại
-      trận với mã "4-01" không có số 0, khiến phiếu cũ bị "mất tích").
+    - SỐ 0 Ở ĐẦU mỗi cụm số (vd "04-01" so với "4-01" phải được coi là CÙNG 1 trận)
+    - các ký tự full-width (vd chữ số kiểu Nhật "４" chuẩn hóa NFKC về "4")
     LƯU Ý: KHÔNG gộp dấu gạch ngang "-" với gạch dưới "_" làm một, vì 2 ký tự này
     đang được dùng để PHÂN BIỆT vòng đấu (vd "16-01" là Vòng 1/16, "16_01" là Vòng 1/8).
     Hàm này KHÔNG thay đổi giá trị Ma_Tran gốc dùng để hiển thị cho người dùng.
     """
     if ma is None:
         return ""
-    s = str(ma).strip().upper()
+    s = str(ma).strip()
+    s = unicodedata.normalize('NFKC', s)  # chuẩn hóa ký tự full-width, tổ hợp Unicode
+    s = s.upper()
     for ky_tu_gach in ["–", "—", "−"]:
         s = s.replace(ky_tu_gach, "-")
-    s = "".join(s.split())  # gộp/xóa mọi khoảng trắng nội bộ
+    # Loại bỏ MỌI ký tự khoảng trắng (kể cả non-breaking space) và các ký tự vô hình
+    # thường gặp khi copy dữ liệu từ Excel/Web vào Google Sheets
+    s = re.sub(r'[\s\u200b\u200c\u200d\u2060\ufeff\u00ad]+', '', s)
     # Xóa số 0 thừa ở đầu mỗi cụm chữ số liên tiếp (không đụng tới dấu "-"/"_")
     s = re.sub(r'(?<![0-9])0+(?=[0-9])', '', s)
+    return s
+
+def chuan_hoa_ma_nv(nv):
+    """Chuẩn hóa Mã nhân viên dùng để SO KHỚP. Xử lý trường hợp Google Sheets trả số
+    dạng float (vd 419 bị ép kiểu thành "419.0") khiến so khớp với input "419" của
+    người dùng bị trượt, đồng thời loại khoảng trắng/ký tự ẩn tương tự mã trận."""
+    if nv is None:
+        return ""
+    s = str(nv).strip()
+    s = unicodedata.normalize('NFKC', s)
+    s = re.sub(r'[\s\u200b\u200c\u200d\u2060\ufeff\u00ad]+', '', s)
+    if re.fullmatch(r'-?\d+\.0+', s):
+        s = s.split('.')[0]
     return s
 
 # --- CÁC HÀM TẢI DỮ LIỆU TỪ CLOUD ---
@@ -235,7 +254,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
         da_du_doan_vo_dich = pd.DataFrame()
         if co_du_cot(df_phieu_hien_tai, ["Ma_NV", "Loai_Du_Doan", "Du_Doan"]):
             df_phieu_hien_tai["Ma_NV"] = df_phieu_hien_tai["Ma_NV"].astype(str).str.strip()
-            da_du_doan_vo_dich = df_phieu_hien_tai[(df_phieu_hien_tai["Ma_NV"] == ma_nv_selected) & (df_phieu_hien_tai["Loai_Du_Doan"] == "Vo_Dich")]
+            da_du_doan_vo_dich = df_phieu_hien_tai[(df_phieu_hien_tai["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) & (df_phieu_hien_tai["Loai_Du_Doan"] == "Vo_Dich")]
         
         # Đóng cổng cố định 8:45 sáng ngày 04/07/2026
         thoi_gian_khoa_vd = datetime.strptime("2026-07-04 08:45:00", "%Y-%m-%d %H:%M:%S")
@@ -284,7 +303,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                         df_cache = st.session_state["df_phieu_cache"]
 
                         if "Ma_NV" in df_cache.columns and "Loai_Du_Doan" in df_cache.columns:
-                            mask_vd = (df_cache["Ma_NV"] == ma_nv_selected) & (df_cache["Loai_Du_Doan"] == "Vo_Dich")
+                            mask_vd = (df_cache["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) & (df_cache["Loai_Du_Doan"] == "Vo_Dich")
                             if mask_vd.any():
                                 st.session_state["df_phieu_cache"].loc[mask_vd, "Du_Doan"] = doi_vo_dich
                                 st.session_state["df_phieu_cache"].loc[mask_vd, "Timestamp"] = payload_vd["Timestamp"]
@@ -357,7 +376,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                 # so với mã đã lưu trong phiếu bầu trước đó (nguyên nhân trận 4-xx bị "quên vote").
                 df_cache_check["Ma_Tran_Key"] = df_cache_check["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran)
                 danh_sach_ma_da_vote = df_cache_check[
-                    (df_cache_check["Ma_NV"] == ma_nv_selected) &
+                    (df_cache_check["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) &
                     (df_cache_check["Loai_Du_Doan"] == "Tran_Dau")
                 ]["Ma_Tran_Key"].tolist()
             
@@ -400,7 +419,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                     # phiếu vote cũ nếu mã trận hiện tại lệch hoa/thường hoặc khoảng trắng.
                     st.session_state["df_phieu_cache"]["Ma_Tran_Key"] = st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran)
                     da_du_doan_tran = st.session_state["df_phieu_cache"][
-                        (st.session_state["df_phieu_cache"]["Ma_NV"] == ma_nv_selected) & 
+                        (st.session_state["df_phieu_cache"]["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) & 
                         (st.session_state["df_phieu_cache"]["Ma_Tran_Key"] == chuan_hoa_ma_tran(ma_tran))
                     ]
                 
@@ -451,7 +470,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
 
                                 if luu_thanh_cong:
                                     df_c = st.session_state["df_phieu_cache"]
-                                    mask_t = (df_c["Ma_NV"] == ma_nv_selected) & (df_c["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran) == chuan_hoa_ma_tran(ma_tran))
+                                    mask_t = (df_c["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) & (df_c["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran) == chuan_hoa_ma_tran(ma_tran))
 
                                     if mask_t.any():
                                         df_c.loc[mask_t, "Du_Doan"] = lua_chon
