@@ -74,7 +74,34 @@ def chuan_hoa_ma_nv(nv):
         s = s.split('.')[0]
     return s
 
-# --- CÁC HÀM TẢI DỮ LIỆU TỪ CLOUD ---
+def sinh_cac_khoa_ma_tran(ma):
+    """Sinh TẤT CẢ các khóa so khớp khả dĩ cho 1 giá trị mã trận thô.
+    LÝ DO: khi cột lưu mã trận trên Google Sheets KHÔNG được định dạng cứng là
+    "Văn bản thuần" (Plain Text), Google Sheets sẽ tự động diễn giải các mã trận
+    dạng số như "04-04" thành kiểu NGÀY THÁNG (Date) -> giá trị đọc về qua API
+    không còn là chuỗi "04-04" nữa mà là một ngày (vd "2026-04-04T00:00:00.000Z",
+    "4/4/2026"...). Không phép chuẩn hóa chuỗi thông thường nào sửa được việc này
+    vì bản chất KIỂU DỮ LIỆU đã bị đổi hoàn toàn ngay từ trong Sheet.
+    Hàm này: nếu giá trị parse được thành ngày tháng hợp lệ, sinh thêm các mã dạng
+    "M-D" và "D-M" (thử cả 2 chiều vì không chắc Google hiểu theo thứ tự nào) để
+    khôi phục lại đúng trận, bên cạnh khóa chuẩn hóa trực tiếp.
+    Trả về: set các khóa (đã qua chuan_hoa_ma_tran).
+    """
+    ket_qua = {chuan_hoa_ma_tran(ma)}
+    if ma is None:
+        return ket_qua
+    s = str(ma).strip()
+    if s == "" or s.lower() == "nan":
+        return ket_qua
+    try:
+        dt = pd.to_datetime(s)
+        ket_qua.add(chuan_hoa_ma_tran(f"{dt.month}-{dt.day}"))
+        ket_qua.add(chuan_hoa_ma_tran(f"{dt.day}-{dt.month}"))
+    except Exception:
+        pass
+    return ket_qua
+
+
 def tai_phieu_bau_cloud():
     # Định nghĩa sẵn danh sách các cột bắt buộc phải có
     cac_cot_mac_dinh = ["Timestamp", "Ma_NV", "Ho_Ten", "Bo_Phan", "Loai_Du_Doan", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan", "Phut_Nop_Som", "Thiet_Bi"]
@@ -367,21 +394,24 @@ if menu == "⚽ Dự Đoán Trận Đấu":
             # Xác định danh sách mã trận mà nhân viên hiện tại ĐÃ bình chọn,
             # để tự động đưa trận đó vào section Ẩn (thu gọn) - đúng concept:
             # "bình chọn xong thì đưa vào section ẩn/hiện, mặc định là ẩn"
-            danh_sach_ma_da_vote = []
+            danh_sach_ma_da_vote = set()
             df_cache_check = st.session_state["df_phieu_cache"]
             if co_du_cot(df_cache_check, ["Ma_NV", "Ma_Tran_Hoac_Doi_Voi", "Loai_Du_Doan"]):
                 df_cache_check = df_cache_check.copy()
-                # SO KHỚP BẰNG MÃ ĐÃ CHUẨN HÓA: tránh mất dấu vết phiếu vote cũ khi
-                # mã trận được Admin nạp/nạp lại lệch hoa-thường/khoảng trắng/gạch ngang
-                # so với mã đã lưu trong phiếu bầu trước đó (nguyên nhân trận 4-xx bị "quên vote").
-                df_cache_check["Ma_Tran_Key"] = df_cache_check["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran)
-                danh_sach_ma_da_vote = df_cache_check[
+                # SO KHỚP BẰNG MÃ ĐÃ CHUẨN HÓA (xem sinh_cac_khoa_ma_tran): tránh mất dấu vết
+                # phiếu vote cũ khi mã trận lệch hoa-thường/khoảng trắng/gạch ngang/số 0 đầu,
+                # và ĐẶC BIỆT xử lý trường hợp Google Sheets tự đổi mã trận "04-04" thành
+                # kiểu Ngày tháng (nguyên nhân chính khiến trận 4-xx bị "quên vote").
+                df_cache_check["Ma_Tran_KhoaSet"] = df_cache_check["Ma_Tran_Hoac_Doi_Voi"].apply(sinh_cac_khoa_ma_tran)
+                for khoa_set in df_cache_check[
                     (df_cache_check["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) &
                     (df_cache_check["Loai_Du_Doan"] == "Tran_Dau")
-                ]["Ma_Tran_Key"].tolist()
+                ]["Ma_Tran_KhoaSet"]:
+                    danh_sach_ma_da_vote |= khoa_set
             
             df_tran['Ma_Tran_Key'] = df_tran['Ma_Tran'].apply(chuan_hoa_ma_tran)
             df_tran['Da_Vote'] = df_tran['Ma_Tran_Key'].isin(danh_sach_ma_da_vote)
+
 
             # Trận đã quá hạn khóa cổng (dt_khoa_sort đã tính ở trên) -> phải tự động
             # thu gọn vào section Ẩn dù nhân viên CHƯA từng vote (trước đây code chỉ ẩn
@@ -401,6 +431,34 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                 (df_tran['Da_Vote']) |
                 (df_tran['Da_Dong_Cong'])
             ]
+
+            # --- KHUNG DEBUG TẠM THỜI: giúp xác định chính xác nguyên nhân lệch mã trận
+            # ngay trên web, không cần đoán qua code. Hiển thị repr() của giá trị THÔ và
+            # giá trị đã CHUẨN HÓA (bao gồm các khóa suy ngược từ Ngày tháng nếu có).
+            with st.expander("🔧 Debug: Kiểm tra dữ liệu thô (bấm để mở)", expanded=False):
+                st.caption(f"Mã NV bạn đang đăng nhập: `{repr(ma_nv_selected)}` → chuẩn hóa: `{repr(chuan_hoa_ma_nv(ma_nv_selected))}`")
+                st.markdown("**Danh sách Ma_Tran trong sheet `tran_dau` (đã chuẩn hóa):**")
+                st.dataframe(df_tran[['Ma_Tran', 'Ma_Tran_Key', 'Da_Vote']].assign(
+                    Ma_Tran_repr=lambda d: d['Ma_Tran'].apply(repr)
+                ), use_container_width=True)
+
+                st.markdown(f"**Các phiếu bầu Trận đấu của Mã NV `{ma_nv_selected}` trong cache (đã chuẩn hóa, kèm khóa suy ngược từ Ngày tháng nếu có):**")
+                df_debug_phieu = st.session_state["df_phieu_cache"]
+                if co_du_cot(df_debug_phieu, ["Ma_NV", "Ma_Tran_Hoac_Doi_Voi", "Loai_Du_Doan"]):
+                    df_debug_phieu = df_debug_phieu.copy()
+                    df_debug_phieu["Ma_NV_Key"] = df_debug_phieu["Ma_NV"].apply(chuan_hoa_ma_nv)
+                    df_debug_phieu["Ma_Tran_KhoaSet"] = df_debug_phieu["Ma_Tran_Hoac_Doi_Voi"].apply(lambda x: sorted(sinh_cac_khoa_ma_tran(x)))
+                    df_debug_phieu["Ma_NV_repr"] = df_debug_phieu["Ma_NV"].apply(repr)
+                    df_debug_phieu["Ma_Tran_Hoac_Doi_Voi_repr"] = df_debug_phieu["Ma_Tran_Hoac_Doi_Voi"].apply(repr)
+                    df_debug_show = df_debug_phieu[
+                        (df_debug_phieu["Loai_Du_Doan"] == "Tran_Dau") &
+                        (df_debug_phieu["Ma_NV_Key"] == chuan_hoa_ma_nv(ma_nv_selected))
+                    ][["Ma_NV_repr", "Ma_NV_Key", "Ma_Tran_Hoac_Doi_Voi_repr", "Ma_Tran_KhoaSet", "Du_Doan", "Timestamp"]]
+                    st.dataframe(df_debug_show, use_container_width=True)
+                    if df_debug_show.empty:
+                        st.warning("Không tìm thấy phiếu Trận_Dau nào của Mã NV này trong cache đang tải — nghĩa là bộ nhớ tạm (session cache) KHÔNG chứa dữ liệu bạn mong đợi. Hãy kiểm tra Mã NV nhập vào web có đúng 100% với Mã NV trong sheet không (xem cột Ma_NV_repr ở trên).")
+                else:
+                    st.warning("df_phieu_cache thiếu cột cần thiết hoặc rỗng — có thể do lỗi tải dữ liệu từ Cloud.")
             
             # Hàm dựng giao diện từng dòng trận đấu
             def render_giao_dien_tran(row_data, idx_key):
@@ -415,12 +473,15 @@ if menu == "⚽ Dự Đoán Trận Đấu":
                 da_du_doan_tran = pd.DataFrame()
                 if co_du_cot(st.session_state["df_phieu_cache"], ["Ma_NV", "Ma_Tran_Hoac_Doi_Voi", "Du_Doan"]):
                     st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"] = st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"].astype(str).str.strip()
-                    # So khớp bằng mã đã chuẩn hóa (xem chuan_hoa_ma_tran) để không bỏ sót
-                    # phiếu vote cũ nếu mã trận hiện tại lệch hoa/thường hoặc khoảng trắng.
-                    st.session_state["df_phieu_cache"]["Ma_Tran_Key"] = st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran)
+                    # So khớp bằng bộ khóa suy rộng (xem sinh_cac_khoa_ma_tran) để không bỏ sót
+                    # phiếu vote cũ nếu mã trận hiện tại lệch hoa/thường/khoảng trắng, HOẶC bị
+                    # Google Sheets tự đổi thành kiểu Ngày tháng.
+                    ma_tran_khoa_muc_tieu = chuan_hoa_ma_tran(ma_tran)
                     da_du_doan_tran = st.session_state["df_phieu_cache"][
                         (st.session_state["df_phieu_cache"]["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) & 
-                        (st.session_state["df_phieu_cache"]["Ma_Tran_Key"] == chuan_hoa_ma_tran(ma_tran))
+                        (st.session_state["df_phieu_cache"]["Ma_Tran_Hoac_Doi_Voi"].apply(
+                            lambda x: ma_tran_khoa_muc_tieu in sinh_cac_khoa_ma_tran(x)
+                        ))
                     ]
                 
                 # Trường hợp: Cổng bình chọn CHƯA MỞ (chưa tới Thoi_Gian_Mo_Form) - bug cũ: không hề kiểm tra mốc này
@@ -470,7 +531,7 @@ if menu == "⚽ Dự Đoán Trận Đấu":
 
                                 if luu_thanh_cong:
                                     df_c = st.session_state["df_phieu_cache"]
-                                    mask_t = (df_c["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) & (df_c["Ma_Tran_Hoac_Doi_Voi"].apply(chuan_hoa_ma_tran) == chuan_hoa_ma_tran(ma_tran))
+                                    mask_t = (df_c["Ma_NV"].apply(chuan_hoa_ma_nv) == chuan_hoa_ma_nv(ma_nv_selected)) & (df_c["Ma_Tran_Hoac_Doi_Voi"].apply(lambda x: chuan_hoa_ma_tran(ma_tran) in sinh_cac_khoa_ma_tran(x)))
 
                                     if mask_t.any():
                                         df_c.loc[mask_t, "Du_Doan"] = lua_chon
@@ -530,16 +591,24 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
         if not co_du_cot(df_tran_nguon, ["Ma_Tran", "Ket_Qua_Thuc_Te"]) or not co_du_cot(df_phieu_nguon, ["Loai_Du_Doan"]) or df_phieu_nguon[df_phieu_nguon['Loai_Du_Doan'] == 'Tran_Dau'].empty:
             return pd.DataFrame()
 
-        # SO KHỚP BẰNG MÃ ĐÃ CHUẨN HÓA: nếu không chuẩn hóa, một phiếu vote có mã trận
-        # lệch hoa/thường hoặc khoảng trắng so với mã trận hiện tại (vd sau khi Admin nạp
-        # lại trận 4-xx) sẽ bị .map() trả về NaN -> không bao giờ được tính điểm ở BXH.
+        # SO KHỚP BẰNG BỘ KHÓA SUY RỘNG: nếu không xử lý, một phiếu vote có mã trận
+        # lệch hoa/thường/khoảng trắng, HOẶC bị Google Sheets tự đổi thành kiểu Ngày
+        # tháng (vd "04-04" -> ngày 4/4) so với mã trận hiện tại sẽ bị .map() trả về
+        # NaN -> không bao giờ được tính điểm ở BXH.
         dict_ket_qua = dict(zip(
             df_tran_nguon['Ma_Tran'].astype(str).apply(chuan_hoa_ma_tran),
             df_tran_nguon['Ket_Qua_Thuc_Te']
         ))
+
+        def _quy_ve_khoa_hop_le(gia_tri_tho):
+            for khoa in sinh_cac_khoa_ma_tran(gia_tri_tho):
+                if khoa in dict_ket_qua:
+                    return khoa
+            return chuan_hoa_ma_tran(gia_tri_tho)
+
         df_du_doan_tran = df_phieu_nguon[df_phieu_nguon['Loai_Du_Doan'] == 'Tran_Dau'].copy()
         df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].astype(str).str.strip()
-        df_du_doan_tran['Ma_Tran_Key'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].apply(chuan_hoa_ma_tran)
+        df_du_doan_tran['Ma_Tran_Key'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].apply(_quy_ve_khoa_hop_le)
 
         # Lọc riêng các trận thuộc vòng đấu được chỉ định (nếu có)
         if danh_sach_ma_tran is not None:
@@ -698,10 +767,11 @@ elif menu == "🛠️ Quản Trị (Admin)":
             st.caption(
                 "Công cụ này so sánh mã trận trong các phiếu bầu đã lưu với danh sách "
                 "trận đấu hiện đang có trên hệ thống. Nếu một mã trận trong phiếu bầu "
-                "KHÔNG khớp với bất kỳ trận nào hiện tại (thường do gõ lại mã trận khi "
-                "'nạp lại' trận đấu bị lệch hoa/thường, khoảng trắng, ký tự gạch ngang), "
-                "phiếu đó sẽ bị 'mồ côi': nhân viên sẽ thấy như chưa từng vote và điểm "
-                "số không được tính ở Bảng xếp hạng."
+                "KHÔNG khớp với bất kỳ trận nào hiện tại (do gõ lại mã trận lệch hoa/thường, "
+                "khoảng trắng, ký tự gạch ngang, HOẶC do Google Sheets tự động đổi mã trận "
+                "dạng số như \"04-04\" thành kiểu Ngày tháng vì cột chưa được định dạng "
+                "Văn bản thuần), phiếu đó sẽ bị 'mồ côi': nhân viên sẽ thấy như chưa từng "
+                "vote và điểm số không được tính ở Bảng xếp hạng."
             )
             df_tran_ck = tai_tran_dau_cloud()
             df_phieu_ck = tai_phieu_bau_cloud()
@@ -711,8 +781,8 @@ elif menu == "🛠️ Quản Trị (Admin)":
             else:
                 ma_tran_hien_tai_key = set(df_tran_ck["Ma_Tran"].astype(str).apply(chuan_hoa_ma_tran))
                 df_vote_tran = df_phieu_ck[df_phieu_ck["Loai_Du_Doan"] == "Tran_Dau"].copy()
-                df_vote_tran["Ma_Tran_Key"] = df_vote_tran["Ma_Tran_Hoac_Doi_Voi"].astype(str).apply(chuan_hoa_ma_tran)
-                df_mo_coi = df_vote_tran[~df_vote_tran["Ma_Tran_Key"].isin(ma_tran_hien_tai_key)]
+                df_vote_tran["Ma_Tran_KhoaSet"] = df_vote_tran["Ma_Tran_Hoac_Doi_Voi"].astype(str).apply(sinh_cac_khoa_ma_tran)
+                df_mo_coi = df_vote_tran[df_vote_tran["Ma_Tran_KhoaSet"].apply(lambda s: s.isdisjoint(ma_tran_hien_tai_key))]
 
                 if df_mo_coi.empty:
                     st.success("✅ Không phát hiện phiếu vote nào bị lệch mã trận. Toàn bộ phiếu đều khớp với trận đấu hiện tại.")
