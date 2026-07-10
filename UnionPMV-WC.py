@@ -582,6 +582,22 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
         df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].astype(str).str.strip()
         df_du_doan_tran['Ma_Tran_Key'] = df_du_doan_tran['Ma_Tran_Hoac_Doi_Voi'].apply(_quy_ve_khoa_hop_le)
 
+        # CHỈ TÍNH 1 LƯỢT SUBMIT DUY NHẤT CHO MỖI (NHÂN VIÊN, MÃ TRẬN):
+        # Trước đây mỗi dòng phiếu bầu đều được cộng điểm riêng, nên nếu 1 người
+        # lỡ bấm nộp nhiều lần cho CÙNG 1 trận (double-click, nộp lại...) thì điểm/phút
+        # sớm bị NHÂN ĐÔI/BA một cách sai lệch. Quy tắc đúng:
+        # - Nếu user chỉ nộp 1 lần -> tính lượt đó như bình thường.
+        # - Nếu user nộp nhiều lần cho cùng 1 mã trận nhưng KHÔNG đổi dự đoán
+        #   -> vẫn chỉ tính 1 lượt duy nhất (không cộng dồn).
+        # - Nếu lượt nộp SAU thay đổi dự đoán so với lượt trước (user sửa lại lựa
+        #   chọn) -> tính theo lượt SAU CÙNG (mới nhất), coi như bản cập nhật đúng.
+        # => Cả 2 trường hợp trên đều được xử lý gọn bằng cách sắp theo Timestamp
+        # rồi chỉ giữ lại DÒNG CUỐI CÙNG của mỗi (Ma_NV, Ma_Tran_Key).
+        df_du_doan_tran['_ts_sap_xep'] = pd.to_datetime(df_du_doan_tran['Timestamp'], errors='coerce')
+        df_du_doan_tran = df_du_doan_tran.sort_values(by='_ts_sap_xep', na_position='first', kind='stable')
+        df_du_doan_tran = df_du_doan_tran.drop_duplicates(subset=['Ma_NV', 'Ma_Tran_Key'], keep='last')
+        df_du_doan_tran = df_du_doan_tran.drop(columns=['_ts_sap_xep'])
+
         # Lọc riêng các trận thuộc vòng đấu được chỉ định (nếu có)
         if danh_sach_ma_tran is not None:
             danh_sach_ma_tran_key = [chuan_hoa_ma_tran(m) for m in danh_sach_ma_tran]
