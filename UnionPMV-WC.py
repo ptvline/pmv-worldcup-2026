@@ -638,6 +638,7 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     ma_tran_vong_16 = [f"16-{i:02d}" for i in range(1, 17)]   # 16-01 -> 16-16 (Vòng 1/16)
     ma_tran_vong_8 = [f"16_{i:02d}" for i in range(1, 9)]     # 16_01 -> 16_08 (Vòng 1/8)
     ma_tran_vong_4 = [f"4-{i:02d}" for i in range(1, 5)]      # 4-01 -> 4-04 (Vòng 1/4 - Tứ kết)
+    ma_tran_vong_2 = [f"02_{i:02d}" for i in range(1, 9)]     # 02_01 -> 02-02 (Vòng 1/2 - Bán kết)
 
     st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu (Chung Cuộc)")
     bxh_chung_cuoc = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=None)
@@ -657,6 +658,12 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     st.header("🎖️ 4. Bảng Tổng Soát Vòng 1/4 (Tứ Kết)")
     bxh_vong_4 = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=ma_tran_vong_4)
     hien_thi_bang_xep_hang(bxh_vong_4, "Chưa có dữ liệu dự đoán/kết quả cho Vòng Tứ Kết.")
+
+    st.markdown("---")
+    st.header("🎖️ 5. Bảng Tổng Soát Vòng 1/2 (Bán Kết)")
+    bxh_vong_2 = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=ma_tran_vong_2)
+    hien_thi_bang_xep_hang(bxh_vong_2, "Chưa có dữ liệu dự đoán/kết quả cho Vòng Tứ Kết.")
+    
 
     st.markdown("---")
     st.header("🔮 5. Danh Sách Lựa Chọn Đội Vô Địch World Cup 2026")
