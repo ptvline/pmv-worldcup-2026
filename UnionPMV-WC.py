@@ -639,7 +639,7 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     ma_tran_vong_8 = [f"16_{i:02d}" for i in range(1, 9)]     # 16_01 -> 16_08 (Vòng 1/8)
     ma_tran_vong_4 = [f"4-{i:02d}" for i in range(1, 5)]      # 4-01 -> 4-04 (Vòng 1/4 - Tứ kết)
     ma_tran_vong_2 = [f"02_{i:02d}" for i in range(1, 9)]     # 02_01 -> 02-02 (Vòng 1/2 - Bán kết)
-    ma_tran_vong_1 = [f"01_{i:02d}" for i in range(1, 2)]     # 01_01 -> 01-02 (Vòng 1/1 - Bán kết)
+    ma_tran_vong_1 = [f"01_{i:02d}" for i in range(1, 9)]     # 01_01 -> 01-02 (Vòng 1/1 - Chung kết)
 
     st.header("🏆 1. Bảng Tổng Điểm Dự Đoán Trận Đấu (Chung Cuộc)")
     bxh_chung_cuoc = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=None)
