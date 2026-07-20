@@ -665,7 +665,7 @@ elif menu == "📊 Bảng Xếp Hạng (Leaderboard)":
     bxh_vong_2 = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=ma_tran_vong_2)
     hien_thi_bang_xep_hang(bxh_vong_2, "Chưa có dữ liệu dự đoán/kết quả cho Vòng Tứ Kết.")
 
-     st.markdown("---")
+    st.markdown("---")
     st.header("🎖️ 6. Bảng Tổng Soát Vòng 1/1 (Chung Kết)")
     bxh_vong_1 = tinh_bang_xep_hang(df_phieu, df_tran, danh_sach_ma_tran=ma_tran_vong_1)
     hien_thi_bang_xep_hang(bxh_vong_1, "Chưa có dữ liệu dự đoán/kết quả cho Vòng Tứ Kết.")
